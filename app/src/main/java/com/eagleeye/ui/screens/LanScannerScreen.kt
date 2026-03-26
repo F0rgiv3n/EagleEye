@@ -23,10 +23,11 @@ import com.eagleeye.data.LanDevice
 import com.eagleeye.modules.iot.IoTViewModel
 import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.modules.lan.ScanState
+import com.eagleeye.modules.wifi.WifiViewModel
 import com.eagleeye.ui.theme.*
 
 @Composable
-fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null) {
+fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null, wifiViewModel: WifiViewModel? = null) {
     val scanState by viewModel.scanState.collectAsState()
     val savedDevices by viewModel.savedDevices.collectAsState()
     val iotProfiles by (iotViewModel?.profiles ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
@@ -39,13 +40,15 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
         else -> savedDevices
     }
 
-    val gatewayIp = remember(devices) {
-        val firstOnline = devices.firstOrNull { it.isOnline }
-        if (firstOnline != null) {
-            val parts = firstOnline.ip.split(".")
-            if (parts.size == 4) "${parts[0]}.${parts[1]}.${parts[2]}.1" else "192.168.1.1"
-        } else "192.168.1.1"
-    }
+    val connectionInfo by (wifiViewModel?.connectionInfo ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
+    val gatewayIp = connectionInfo?.gateway?.takeIf { it.isNotBlank() && it != "0.0.0.0" }
+        ?: remember(devices) {
+            val firstOnline = devices.firstOrNull { it.isOnline }
+            if (firstOnline != null) {
+                val parts = firstOnline.ip.split(".")
+                if (parts.size == 4) "${parts[0]}.${parts[1]}.${parts[2]}.1" else "192.168.1.1"
+            } else "192.168.1.1"
+        }
 
     if (showTopology) {
         Box(
@@ -245,6 +248,20 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: I
                                     .background(CyberOrange.copy(alpha = 0.12f))
                                     .padding(horizontal = 5.dp, vertical = 1.dp)
                             )
+                        }
+                        iotProfile?.let { p ->
+                            if (p.riskLevel == IoTRisk.HIGH || p.riskLevel == IoTRisk.MEDIUM) {
+                                val riskColor = if (p.riskLevel == IoTRisk.HIGH) CyberRed else CyberOrange
+                                Text(
+                                    p.riskLevel.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = riskColor,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(riskColor.copy(alpha = 0.12f))
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
                         }
                     }
                     Text(
