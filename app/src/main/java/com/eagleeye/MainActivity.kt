@@ -20,6 +20,7 @@ import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.modules.security.SecurityViewModel
 import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.modules.mac.MacViewModel
+import com.eagleeye.modules.monitor.MonitorViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -32,14 +33,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_WIFI_STATE,
-                Manifest.permission.CHANGE_WIFI_STATE,
-            )
+        val perms = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_WIFI_STATE,
+            Manifest.permission.CHANGE_WIFI_STATE,
         )
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        permissionLauncher.launch(perms.toTypedArray())
 
         setContent {
             EagleEyeTheme {
@@ -56,6 +59,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object Security : Screen("security", "Security", Icons.Default.Shield)
     object Tools : Screen("tools", "Tools", Icons.Default.Build)
     object Mac : Screen("mac", "MAC", Icons.Default.PrivacyTip)
+    object Monitor : Screen("monitor", "Monitor", Icons.Default.Radar)
 }
 
 val bottomNavItems = listOf(
@@ -64,7 +68,8 @@ val bottomNavItems = listOf(
     Screen.LanScanner,
     Screen.Security,
     Screen.Tools,
-    Screen.Mac
+    Screen.Mac,
+    Screen.Monitor
 )
 
 @Composable
@@ -74,7 +79,9 @@ fun EagleEyeApp() {
     val securityViewModel: SecurityViewModel = viewModel()
     val toolsViewModel: ToolsViewModel = viewModel()
     val macViewModel: MacViewModel = viewModel()
+    val monitorViewModel: MonitorViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+    val unreadCount by monitorViewModel.unreadCount.collectAsState()
 
     Scaffold(
         containerColor = BackgroundDark,
@@ -86,9 +93,20 @@ fun EagleEyeApp() {
                 bottomNavItems.forEach { screen ->
                     NavigationBarItem(
                         selected = currentScreen == screen,
-                        onClick = { currentScreen = screen },
+                        onClick = {
+                            currentScreen = screen
+                            if (screen == Screen.Monitor) monitorViewModel.markAllRead()
+                        },
                         icon = {
-                            Icon(screen.icon, contentDescription = screen.label)
+                            BadgedBox(badge = {
+                                if (screen == Screen.Monitor && unreadCount > 0) {
+                                    Badge(containerColor = CyberRed) {
+                                        Text("$unreadCount", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }) {
+                                Icon(screen.icon, contentDescription = screen.label)
+                            }
                         },
                         label = {
                             Text(screen.label, style = MaterialTheme.typography.labelMedium)
@@ -117,6 +135,7 @@ fun EagleEyeApp() {
                 Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
                 Screen.Tools -> ToolsScreen(toolsViewModel)
                 Screen.Mac -> MacScreen(macViewModel)
+                Screen.Monitor -> MonitorScreen(monitorViewModel)
             }
         }
     }

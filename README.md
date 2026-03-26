@@ -137,6 +137,27 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 7 — Background Monitor + Notifications + Timeline ✅
+| Feature | Status |
+|---|---|
+| Foreground Service με persistent notification | ✅ Done |
+| Configurable scan interval (5/10/15/30/60 min) | ✅ Done |
+| ARP spoof detection in background | ✅ Done |
+| Evil twin detection in background | ✅ Done |
+| New LAN device detection + notification | ✅ Done |
+| DNS change detection + notification | ✅ Done |
+| MAC conflict detection (multi-IP same MAC) | ✅ Done |
+| Push notifications με severity priority | ✅ Done |
+| Network Timeline — πλήρες ιστορικό events | ✅ Done |
+| Timeline / Threats Only tabs | ✅ Done |
+| Relative timestamps (just now / Xm ago / Xh ago) | ✅ Done |
+| Unread badge στο bottom nav tab | ✅ Done |
+| Per-notification toggle (new device, ARP, evil twin, DNS, weak sec) | ✅ Done |
+| Event stats: CRITICAL / HIGH / TODAY / UNREAD | ✅ Done |
+| Auto-cleanup events > 7 days | ✅ Done |
+
+---
+
 ### Part 5 — MAC Privacy ✅
 | Feature | Status |
 |---|---|
