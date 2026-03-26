@@ -16,22 +16,22 @@ import kotlinx.coroutines.launch
 class ToolsViewModel(application: Application) : AndroidViewModel(application) {
 
     val tools = NetworkTools(application)
-    private val sslInspector = SslInspector()
-    private val vpnDetector = VpnLeakDetector(application)
-    private val cveRepo = CveRepository()
-    private val exporter = ReportExporter(application)
-    private val portalDetector = CaptivePortalDetector()
-    private val headersAnalyzer = HttpHeadersAnalyzer()
-    private val threatIntelClient = ThreatIntelClient()
-    private val shodanClient = ShodanClient()
-    private val whoisClient = WhoisClient()
-    private val rogueDhcpDetector = com.eagleeye.modules.security.RogueDhcpDetector(application)
-    private val speedTestClient = SpeedTestClient()
-    private val bandwidthMonitor = BandwidthMonitor()
-    private val mdnsDiscovery = MdnsDiscovery(application)
-    private val ifaceScanner = NetworkInterfaceScanner()
-    private val dnsBenchmark = DnsBenchmark()
-    private val firewallTester = FirewallTester()
+    private val sslInspector by lazy { SslInspector() }
+    private val vpnDetector by lazy { VpnLeakDetector(application) }
+    private val cveRepo by lazy { CveRepository() }
+    private val exporter by lazy { ReportExporter(application) }
+    private val portalDetector by lazy { CaptivePortalDetector() }
+    private val headersAnalyzer by lazy { HttpHeadersAnalyzer() }
+    private val threatIntelClient by lazy { ThreatIntelClient() }
+    private val shodanClient by lazy { ShodanClient() }
+    private val whoisClient by lazy { WhoisClient() }
+    private val rogueDhcpDetector by lazy { com.eagleeye.modules.security.RogueDhcpDetector(application) }
+    private val speedTestClient by lazy { SpeedTestClient() }
+    private val bandwidthMonitor by lazy { BandwidthMonitor() }
+    private val mdnsDiscovery by lazy { MdnsDiscovery(application) }
+    private val ifaceScanner by lazy { NetworkInterfaceScanner() }
+    private val dnsBenchmark by lazy { DnsBenchmark() }
+    private val firewallTester by lazy { FirewallTester() }
 
     // ── Ping ──
     private val _pingResult = MutableStateFlow<PingResult?>(null)

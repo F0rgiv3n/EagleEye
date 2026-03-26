@@ -70,20 +70,23 @@ class PacketViewModel(app: Application) : AndroidViewModel(app) {
                     destCounts[packet.dstIp] = (destCounts[packet.dstIp] ?: 0) + 1
                 }
 
-                val topDest = destCounts.entries
-                    .sortedByDescending { it.value }
-                    .take(10)
-                    .map { it.key to it.value }
+                // Only recompute and emit stats every 20 packets to avoid excessive recompositions
+                if (totalPackets % 20 == 0 || totalPackets <= 5) {
+                    val topDest = destCounts.entries
+                        .sortedByDescending { it.value }
+                        .take(10)
+                        .map { it.key to it.value }
 
-                _stats.value = PacketStats(
-                    totalPackets = totalPackets,
-                    totalBytes = totalBytes,
-                    tcpPackets = tcpCount,
-                    udpPackets = udpCount,
-                    icmpPackets = icmpCount,
-                    dnsQueries = dnsQuerySet.toList(),
-                    topDestinations = topDest
-                )
+                    _stats.value = PacketStats(
+                        totalPackets = totalPackets,
+                        totalBytes = totalBytes,
+                        tcpPackets = tcpCount,
+                        udpPackets = udpCount,
+                        icmpPackets = icmpCount,
+                        dnsQueries = dnsQuerySet.toList(),
+                        topDestinations = topDest
+                    )
+                }
             }
         }
     }

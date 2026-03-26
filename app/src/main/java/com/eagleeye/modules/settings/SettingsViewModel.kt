@@ -14,7 +14,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val repo = SettingsRepository(application)
 
     val settings: StateFlow<AppSettings> = repo.settings
-        .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
+        .stateIn(viewModelScope, SharingStarted.Lazily, AppSettings())
 
     fun setOnboardingDone() = viewModelScope.launch {
         repo.update { copy(onboardingDone = true) }

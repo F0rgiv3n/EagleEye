@@ -157,24 +157,26 @@ fun MonitorScreen(viewModel: MonitorViewModel) {
             }
         }
 
-        val filteredEvents = events.filter { event ->
-            when (selectedFilter) {
-                "DEVICES"  -> event.type in listOf(EventType.NEW_DEVICE, EventType.DEVICE_GONE)
-                "THREATS"  -> event.type in listOf(EventType.ARP_SPOOF, EventType.EVIL_TWIN,
-                    EventType.DNS_CHANGED, EventType.WPS_DETECTED, EventType.OPEN_NETWORK)
-                "SCANS"    -> event.type in listOf(EventType.SCAN_COMPLETE,
-                    EventType.MONITOR_STARTED, EventType.MONITOR_STOPPED)
-                "AUDITS"   -> event.type == EventType.SECURITY_AUDIT
-                else       -> true
+        val filteredEvents = remember(events, selectedFilter) {
+            events.filter { event ->
+                when (selectedFilter) {
+                    "DEVICES"  -> event.type in listOf(EventType.NEW_DEVICE, EventType.DEVICE_GONE)
+                    "THREATS"  -> event.type in listOf(EventType.ARP_SPOOF, EventType.EVIL_TWIN,
+                        EventType.DNS_CHANGED, EventType.WPS_DETECTED, EventType.OPEN_NETWORK)
+                    "SCANS"    -> event.type in listOf(EventType.SCAN_COMPLETE,
+                        EventType.MONITOR_STARTED, EventType.MONITOR_STOPPED)
+                    "AUDITS"   -> event.type == EventType.SECURITY_AUDIT
+                    else       -> true
+                }
             }
         }
 
         if (filteredEvents.isEmpty()) {
             EmptyTimeline(isRunning)
         } else {
-            val sortedEvents = filteredEvents.sortedByDescending { it.timestamp }
-            val dayKeys = sortedEvents.map { dayLabel(it.timestamp) }.distinct()
-            val grouped  = sortedEvents.groupBy { dayLabel(it.timestamp) }
+            val sortedEvents = remember(filteredEvents) { filteredEvents.sortedByDescending { it.timestamp } }
+            val dayKeys = remember(sortedEvents) { sortedEvents.map { dayLabel(it.timestamp) }.distinct() }
+            val grouped  = remember(sortedEvents) { sortedEvents.groupBy { dayLabel(it.timestamp) } }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 dayKeys.forEach { key ->

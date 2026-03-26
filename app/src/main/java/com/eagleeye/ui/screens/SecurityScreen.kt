@@ -42,6 +42,11 @@ fun SecurityScreen(
     val exportIntent by toolsViewModel?.exportIntent?.collectAsState() ?: remember { mutableStateOf(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    // Auto-run audit when screen opens for the first time
+    LaunchedEffect(Unit) {
+        if (state is AuditState.Idle) viewModel.runAudit()
+    }
+
     // Launch share intent when export is ready
     LaunchedEffect(exportIntent) {
         exportIntent?.let {

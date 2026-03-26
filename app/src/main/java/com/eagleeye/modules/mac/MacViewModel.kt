@@ -35,8 +35,6 @@ class MacViewModel(application: Application) : AndroidViewModel(application) {
             .getSystemService(android.content.Context.WIFI_SERVICE) as WifiManager)
             .connectionInfo?.ssid?.removePrefix("\"")?.removeSuffix("\"") ?: ""
 
-    init { refreshMacInfo() }
-
     fun refreshMacInfo() {
         viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true

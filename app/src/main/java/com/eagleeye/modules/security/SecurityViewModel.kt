@@ -30,10 +30,6 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
     private val _auditState = MutableStateFlow<AuditState>(AuditState.Idle)
     val auditState: StateFlow<AuditState> = _auditState.asStateFlow()
 
-    init {
-        runAudit()
-    }
-
     fun runAudit() {
         viewModelScope.launch(Dispatchers.IO) {
             _auditState.value = AuditState.Running

@@ -31,6 +31,11 @@ fun MacScreen(viewModel: MacViewModel) {
     val profiles by viewModel.profiles.collectAsState()
     val newMacPreview by viewModel.newMacPreview.collectAsState()
 
+    // Load MAC info on first open
+    LaunchedEffect(Unit) {
+        if (macInfo == null) viewModel.refreshMacInfo()
+    }
+
     // Show snackbar for results
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(result) {

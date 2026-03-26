@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.*
 
 class LanRepository(private val context: Context) {
@@ -108,27 +106,29 @@ class LanRepository(private val context: Context) {
         }
     }
 
-    private fun resolveHostname(ip: String): String {
+    private suspend fun resolveHostname(ip: String): String {
         return try {
-            withTimeoutBlocking(500) {
-                InetAddress.getByName(ip).hostName.takeIf { it != ip } ?: ""
-            }
+            withTimeoutOrNull(500) {
+                withContext(Dispatchers.IO) {
+                    InetAddress.getByName(ip).hostName.takeIf { it != ip } ?: ""
+                }
+            } ?: ""
         } catch (e: Exception) {
             ""
         }
     }
 
-    private fun scanPorts(ip: String): List<Int> {
-        val open = mutableListOf<Int>()
-        for (port in topPorts) {
-            try {
-                Socket().use { socket ->
-                    socket.connect(InetSocketAddress(ip, port), 200)
-                    open.add(port)
-                }
-            } catch (_: Exception) {}
-        }
-        return open
+    private suspend fun scanPorts(ip: String): List<Int> = coroutineScope {
+        topPorts.map { port ->
+            async(Dispatchers.IO) {
+                try {
+                    Socket().use { socket ->
+                        socket.connect(InetSocketAddress(ip, port), 200)
+                        port
+                    }
+                } catch (_: Exception) { null }
+            }
+        }.awaitAll().filterNotNull()
     }
 
     fun getServiceName(port: Int): String = when (port) {
@@ -178,9 +178,4 @@ class LanRepository(private val context: Context) {
         return parts.fold(0L) { acc, s -> (acc shl 8) + (s.toLongOrNull() ?: 0L) }
     }
 
-    // Blocking timeout helper for hostname resolution
-    private fun <T> withTimeoutBlocking(timeoutMs: Long, block: () -> T): T {
-        val future = java.util.concurrent.CompletableFuture.supplyAsync { block() }
-        return future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-    }
 }
