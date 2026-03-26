@@ -59,6 +59,7 @@ object PacketParser {
     }
 
     private fun formatIp(buf: ByteArray, offset: Int): String {
+        if (offset + 3 >= buf.size) return "0.0.0.0"
         return "${buf[offset].toInt() and 0xFF}.${buf[offset + 1].toInt() and 0xFF}" +
                ".${buf[offset + 2].toInt() and 0xFF}.${buf[offset + 3].toInt() and 0xFF}"
     }

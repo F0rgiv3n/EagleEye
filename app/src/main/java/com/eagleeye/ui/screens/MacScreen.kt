@@ -1,5 +1,11 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.eagleeye.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -18,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.eagleeye.data.MacInfo
 import com.eagleeye.data.MacProfile
 import com.eagleeye.data.MacType
+import androidx.compose.ui.platform.LocalContext
 import com.eagleeye.modules.mac.MacViewModel
 import com.eagleeye.ui.theme.*
 import java.text.SimpleDateFormat
@@ -116,6 +123,7 @@ fun MacScreen(viewModel: MacViewModel) {
 
 @Composable
 private fun MacInfoCard(info: MacInfo) {
+    val context = LocalContext.current
     val typeColor = when (info.type) {
         MacType.RANDOMIZED -> CyberGreen
         MacType.REAL -> CyberOrange
@@ -168,7 +176,15 @@ private fun MacInfoCard(info: MacInfo) {
             text = info.currentMac,
             style = MaterialTheme.typography.headlineMedium,
             color = TextPrimary,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("MAC", info.currentMac))
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied: ${info.currentMac}", Toast.LENGTH_SHORT).show()
+                }
+            )
         )
 
         if (info.vendor.isNotBlank() && info.vendor != "Unknown") {
@@ -386,6 +402,7 @@ private fun ProfilesCard(
 
 @Composable
 private fun ProfileRow(profile: MacProfile, isCurrent: Boolean, onDelete: () -> Unit) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -412,7 +429,19 @@ private fun ProfileRow(profile: MacProfile, isCurrent: Boolean, onDelete: () -> 
                     Text("●", color = CyberGreen, style = MaterialTheme.typography.bodySmall)
                 }
             }
-            Text(profile.mac, style = MaterialTheme.typography.bodySmall, color = CyberBlue)
+            Text(
+                profile.mac,
+                style = MaterialTheme.typography.bodySmall,
+                color = CyberBlue,
+                modifier = Modifier.combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("MAC", profile.mac))
+                        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied: ${profile.mac}", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            )
             if (profile.isAutoRotate) {
                 Text(
                     "Auto-rotate every ${profile.rotateIntervalHours}h  •  Last: ${formatTime(profile.lastRotated)}",
@@ -519,7 +548,9 @@ private fun AddProfileDialog(
     )
 }
 
+private val sdfMacTime = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+
 private fun formatTime(ts: Long): String {
     if (ts == 0L) return "Never"
-    return SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(ts))
+    return sdfMacTime.format(Date(ts))
 }

@@ -11,10 +11,10 @@ data class WifiConnectionInfo(
     val linkSpeedMbps: Int = 0,
     val rssi: Int = 0,
     val frequencyMhz: Int = 0,
-    val channel: Int = 0,
     val securityType: String = "",
     val isConnected: Boolean = false
 ) {
+    val channel: Int get() = frequencyToChannel(frequencyMhz)
     val signalStrength: SignalStrength get() = when {
         rssi >= -50 -> SignalStrength.EXCELLENT
         rssi >= -65 -> SignalStrength.GOOD

@@ -25,14 +25,17 @@ class IoTViewModel(application: Application) : AndroidViewModel(application) {
         if (_scanning.value) return
         viewModelScope.launch(Dispatchers.IO) {
             _scanning.value = true
-            val ssdp = SsdpScanner.scan()
-            val result = mutableMapOf<String, IoTProfile>()
-            devices.forEach { device ->
-                val profile = profiler.profile(device, ssdp)
-                result[device.ip] = profile
+            try {
+                val ssdp = SsdpScanner.scan()
+                val result = mutableMapOf<String, IoTProfile>()
+                devices.forEach { device ->
+                    val profile = profiler.profile(device, ssdp)
+                    result[device.ip] = profile
+                }
+                _profiles.value = result
+            } finally {
+                _scanning.value = false
             }
-            _profiles.value = result
-            _scanning.value = false
         }
     }
 }

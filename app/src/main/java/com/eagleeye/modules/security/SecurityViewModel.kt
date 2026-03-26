@@ -37,7 +37,8 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
                 val unknownCount = dao.getAll().count { !it.isKnown }
                 val score = detector.runFullAudit(unknownCount)
                 _auditState.value = AuditState.Result(score)
-                updateWidget(score, score.threats)
+                // Widget + event logging are best-effort — don't let them corrupt audit state
+                runCatching { updateWidget(score, score.threats) }
                 val sev = when {
                     score.threats.any { it.level == ThreatLevel.CRITICAL } -> EventSeverity.CRITICAL
                     score.threats.any { it.level == ThreatLevel.HIGH }     -> EventSeverity.HIGH
@@ -45,12 +46,14 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
                     score.total < 80 -> EventSeverity.LOW
                     else             -> EventSeverity.INFO
                 }
-                eventDao.insert(NetworkEvent(
-                    type     = EventType.SECURITY_AUDIT,
-                    severity = sev,
-                    title    = "Security Audit · Grade ${score.grade}",
-                    detail   = "${score.threats.size} threat${if (score.threats.size != 1) "s" else ""} detected · score ${score.total}/100"
-                ))
+                runCatching {
+                    eventDao.insert(NetworkEvent(
+                        type     = EventType.SECURITY_AUDIT,
+                        severity = sev,
+                        title    = "Security Audit · Grade ${score.grade}",
+                        detail   = "${score.threats.size} threat${if (score.threats.size != 1) "s" else ""} detected · score ${score.total}/100"
+                    ))
+                }
             } catch (e: Exception) {
                 _auditState.value = AuditState.Error(e.message ?: "Audit failed")
             }
@@ -68,8 +71,8 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
             .putInt("threat_count", criticalHighCount)
             .putString(
                 "last_scan",
-                java.text.SimpleDateFormat("HH:mm dd/MM", java.util.Locale.getDefault())
-                    .format(java.util.Date())
+                java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM"))
             )
             .apply()
         val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)

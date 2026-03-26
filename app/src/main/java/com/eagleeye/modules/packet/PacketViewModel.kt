@@ -11,6 +11,8 @@ import com.eagleeye.data.IpProtocol
 import com.eagleeye.data.PacketStats
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 class PacketViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -31,8 +33,8 @@ class PacketViewModel(app: Application) : AndroidViewModel(app) {
     private var tcpCount = 0
     private var udpCount = 0
     private var icmpCount = 0
-    private val dnsQuerySet = LinkedHashSet<String>()
-    private val destCounts = HashMap<String, Int>()
+    private val dnsQuerySet = Collections.synchronizedSet(LinkedHashSet<String>())
+    private val destCounts = ConcurrentHashMap<String, Int>()
 
     private fun isPrivateIp(ip: String): Boolean {
         return ip.startsWith("192.168.") ||

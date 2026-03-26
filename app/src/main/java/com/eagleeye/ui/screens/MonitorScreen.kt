@@ -516,6 +516,17 @@ private fun ActivityChart(events: List<NetworkEvent>) {
             color = TextDim,
             modifier = Modifier.padding(bottom = 4.dp))
 
+        val labelPaint = remember {
+            android.graphics.Paint().apply {
+                textSize = 24f  // will be overridden in draw with sp values
+                typeface = android.graphics.Typeface.MONOSPACE
+                textAlign = android.graphics.Paint.Align.CENTER
+                isAntiAlias = true
+            }
+        }
+        val barPaint = remember { android.graphics.Paint().apply { isAntiAlias = true; style = android.graphics.Paint.Style.FILL } }
+        val dimPaint = remember { android.graphics.Paint().apply { style = android.graphics.Paint.Style.FILL } }
+
         androidx.compose.foundation.Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -523,12 +534,7 @@ private fun ActivityChart(events: List<NetworkEvent>) {
         ) {
             val segW = size.width / 7f
             val maxBarH = size.height - 16.dp.toPx()
-            val labelPaint = android.graphics.Paint().apply {
-                textSize = 8.sp.toPx()
-                typeface = android.graphics.Typeface.MONOSPACE
-                textAlign = android.graphics.Paint.Align.CENTER
-                isAntiAlias = true
-            }
+            labelPaint.textSize = 8.sp.toPx()
 
             bars.forEachIndexed { i, bar ->
                 val cx = i * segW + segW / 2f
@@ -544,16 +550,9 @@ private fun ActivityChart(events: List<NetworkEvent>) {
                     0 -> android.graphics.Color.argb(255, 0, 255, 136)   // INFO
                     else -> android.graphics.Color.argb(60, 0, 255, 136) // no events
                 }
-                val barPaint = android.graphics.Paint().apply {
-                    this.color = color
-                    style = android.graphics.Paint.Style.FILL
-                    isAntiAlias = true
-                }
-                val dimPaint = android.graphics.Paint().apply {
-                    this.color = color
-                    alpha = 50
-                    style = android.graphics.Paint.Style.FILL
-                }
+                barPaint.color = color
+                dimPaint.color = color
+                dimPaint.alpha = 50
 
                 val barTop = size.height - barH - 16.dp.toPx()
                 // dim full-height background

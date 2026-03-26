@@ -38,8 +38,11 @@ class MacViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshMacInfo() {
         viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true
-            _macInfo.value = repository.getMacInfo()
-            _loading.value = false
+            try {
+                _macInfo.value = repository.getMacInfo()
+            } finally {
+                _loading.value = false
+            }
         }
     }
 
@@ -54,34 +57,40 @@ class MacViewModel(application: Application) : AndroidViewModel(application) {
     fun applyMac(mac: String) {
         viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true
-            val result = repository.changeMac(mac)
-            _actionResult.value = when (result) {
-                MacChangeResult.Success -> "MAC changed to $mac"
-                MacChangeResult.RootDenied -> "Root access required to change MAC"
-                MacChangeResult.InvalidFormat -> "Invalid MAC format (use AA:BB:CC:DD:EE:FF)"
-                is MacChangeResult.Error -> "Error: ${result.message}"
+            try {
+                val result = repository.changeMac(mac)
+                _actionResult.value = when (result) {
+                    MacChangeResult.Success -> "MAC changed to $mac"
+                    MacChangeResult.RootDenied -> "Root access required to change MAC"
+                    MacChangeResult.InvalidFormat -> "Invalid MAC format (use AA:BB:CC:DD:EE:FF)"
+                    is MacChangeResult.Error -> "Error: ${result.message}"
+                }
+                if (result == MacChangeResult.Success) {
+                    _macInfo.value = repository.getMacInfo()
+                    _newMacPreview.value = ""
+                }
+            } finally {
+                _loading.value = false
             }
-            if (result == MacChangeResult.Success) {
-                _macInfo.value = repository.getMacInfo()
-                _newMacPreview.value = ""
-            }
-            _loading.value = false
         }
     }
 
     fun resetToRandom() {
         viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true
-            val result = repository.resetToRandom()
-            _actionResult.value = when (result) {
-                MacChangeResult.Success -> "MAC randomized successfully"
-                MacChangeResult.RootDenied -> "Root access required"
-                else -> "Failed to randomize MAC"
+            try {
+                val result = repository.resetToRandom()
+                _actionResult.value = when (result) {
+                    MacChangeResult.Success -> "MAC randomized successfully"
+                    MacChangeResult.RootDenied -> "Root access required"
+                    else -> "Failed to randomize MAC"
+                }
+                if (result == MacChangeResult.Success) {
+                    _macInfo.value = repository.getMacInfo()
+                }
+            } finally {
+                _loading.value = false
             }
-            if (result == MacChangeResult.Success) {
-                _macInfo.value = repository.getMacInfo()
-            }
-            _loading.value = false
         }
     }
 

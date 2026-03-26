@@ -1,5 +1,11 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.eagleeye.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -371,6 +377,7 @@ private fun ScoreRow(label: String, score: Int, max: Int) {
 @Composable
 private fun ThreatCard(threat: Threat) {
     var expanded by remember { mutableStateOf(threat.level == ThreatLevel.CRITICAL) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val (borderColor, bgColor, icon) = when (threat.level) {
         ThreatLevel.CRITICAL -> Triple(CyberRed, CyberRed.copy(alpha = 0.05f), Icons.Default.GppBad)
@@ -388,7 +395,14 @@ private fun ThreatCard(threat: Threat) {
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .border(1.dp, borderColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-            .clickable { expanded = !expanded }
+            .combinedClickable(
+                onClick = { expanded = !expanded },
+                onLongClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("Threat", threat.title))
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied: ${threat.title}", Toast.LENGTH_SHORT).show()
+                }
+            )
     ) {
         Row(
             modifier = Modifier
