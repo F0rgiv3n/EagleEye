@@ -166,6 +166,9 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     private val _exportIntent = MutableStateFlow<Intent?>(null)
     val exportIntent: StateFlow<Intent?> = _exportIntent.asStateFlow()
 
+    private val eventDao = com.eagleeye.data.db.AppDatabase
+        .getInstance(application).networkEventDao()
+
     fun exportReport(
         wifi: WifiConnectionInfo,
         score: SecurityScore?,
@@ -173,10 +176,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         asJson: Boolean = true
     ) {
         viewModelScope.launch(Dispatchers.IO) {
+            val events = eventDao.getRecent(100)
             val intent = if (asJson)
-                exporter.exportJson(wifi, score, devices)
+                exporter.exportJson(wifi, score, devices, events)
             else
-                exporter.exportText(wifi, score, devices)
+                exporter.exportText(wifi, score, devices, events)
             _exportIntent.value = intent
         }
     }

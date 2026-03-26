@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eagleeye.modules.wifi.WifiViewModel
 import com.eagleeye.modules.lan.LanViewModel
+import com.eagleeye.modules.security.AuditState
 import com.eagleeye.modules.security.SecurityViewModel
 import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.modules.mac.MacViewModel
@@ -97,6 +98,9 @@ fun EagleEyeApp() {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
     val unreadCount by monitorViewModel.unreadCount.collectAsState()
     val settings by settingsViewModel.settings.collectAsState()
+    val wifiInfo by wifiViewModel.connectionInfo.collectAsState()
+    val auditState by securityViewModel.auditState.collectAsState()
+    val savedDevices by lanViewModel.savedDevices.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -149,7 +153,14 @@ fun EagleEyeApp() {
                     Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
                     Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel, wifiViewModel)
                     Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
-                    Screen.Tools -> ToolsScreen(toolsViewModel, packetViewModel, btViewModel)
+                    Screen.Tools -> ToolsScreen(
+                        viewModel = toolsViewModel,
+                        packetViewModel = packetViewModel,
+                        btViewModel = btViewModel,
+                        wifiInfo = wifiInfo,
+                        securityScore = (auditState as? AuditState.Result)?.score,
+                        lanDevices = savedDevices
+                    )
                     Screen.Mac -> MacScreen(macViewModel)
                     Screen.Monitor -> MonitorScreen(monitorViewModel)
                     Screen.Settings -> SettingsScreen(settingsViewModel)

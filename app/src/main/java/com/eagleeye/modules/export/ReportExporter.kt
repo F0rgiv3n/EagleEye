@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.eagleeye.data.LanDevice
+import com.eagleeye.data.NetworkEvent
 import com.eagleeye.data.SecurityScore
 import com.eagleeye.data.WifiConnectionInfo
 import kotlinx.coroutines.Dispatchers
@@ -18,24 +19,24 @@ class ReportExporter(private val context: Context) {
     suspend fun exportJson(
         wifi: WifiConnectionInfo,
         score: SecurityScore?,
-        devices: List<LanDevice>
+        devices: List<LanDevice>,
+        events: List<NetworkEvent> = emptyList()
     ): Intent = withContext(Dispatchers.IO) {
         val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val file = File(context.cacheDir, "eagleeye_report_$ts.json")
-
-        file.writeText(buildJson(wifi, score, devices))
+        file.writeText(buildJson(wifi, score, devices, events))
         buildShareIntent(file, "application/json")
     }
 
     suspend fun exportText(
         wifi: WifiConnectionInfo,
         score: SecurityScore?,
-        devices: List<LanDevice>
+        devices: List<LanDevice>,
+        events: List<NetworkEvent> = emptyList()
     ): Intent = withContext(Dispatchers.IO) {
         val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val file = File(context.cacheDir, "eagleeye_report_$ts.txt")
-
-        file.writeText(buildText(wifi, score, devices))
+        file.writeText(buildText(wifi, score, devices, events))
         buildShareIntent(file, "text/plain")
     }
 
@@ -58,7 +59,8 @@ class ReportExporter(private val context: Context) {
     private fun buildJson(
         wifi: WifiConnectionInfo,
         score: SecurityScore?,
-        devices: List<LanDevice>
+        devices: List<LanDevice>,
+        events: List<NetworkEvent> = emptyList()
     ): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
         sdf.timeZone = TimeZone.getTimeZone("UTC")
@@ -115,6 +117,17 @@ class ReportExporter(private val context: Context) {
             sb.appendLine("      \"known\": ${d.isKnown}")
             sb.appendLine("    }$comma")
         }
+        sb.appendLine("  ],")
+
+        // Network history
+        sb.appendLine("  \"network_events\": [")
+        val evSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).also {
+            it.timeZone = TimeZone.getTimeZone("UTC")
+        }
+        events.take(100).forEachIndexed { i, ev ->
+            val comma = if (i < events.take(100).size - 1) "," else ""
+            sb.appendLine("    { \"time\": \"${evSdf.format(Date(ev.timestamp))}\", \"type\": \"${ev.type}\", \"severity\": \"${ev.severity}\", \"title\": \"${ev.title.replace("\"", "'")}\" }$comma")
+        }
         sb.appendLine("  ]")
         sb.append("}")
 
@@ -126,7 +139,8 @@ class ReportExporter(private val context: Context) {
     private fun buildText(
         wifi: WifiConnectionInfo,
         score: SecurityScore?,
-        devices: List<LanDevice>
+        devices: List<LanDevice>,
+        events: List<NetworkEvent> = emptyList()
     ): String {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
@@ -183,6 +197,15 @@ class ReportExporter(private val context: Context) {
             }
         }
         sb.appendLine()
+        if (events.isNotEmpty()) {
+            val evSdf = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+            sb.appendLine("── NETWORK HISTORY (last ${events.take(30).size}) ───────────")
+            events.take(30).forEach { ev ->
+                sb.appendLine("  [${ev.severity.name.padEnd(8)}] ${evSdf.format(Date(ev.timestamp))}  ${ev.title}")
+            }
+            sb.appendLine()
+        }
+
         sb.appendLine("═══════════════════════════════════════")
 
         return sb.toString()

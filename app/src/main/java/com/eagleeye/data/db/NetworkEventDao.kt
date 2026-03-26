@@ -30,4 +30,7 @@ interface NetworkEventDao {
 
     @Query("SELECT * FROM network_events ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatest(): NetworkEvent?
+
+    @Query("SELECT * FROM network_events ORDER BY timestamp DESC LIMIT :n")
+    suspend fun getRecent(n: Int = 100): List<NetworkEvent>
 }

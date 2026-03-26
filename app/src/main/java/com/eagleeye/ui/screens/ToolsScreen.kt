@@ -1,5 +1,6 @@
 package com.eagleeye.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,11 +31,27 @@ import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.modules.bluetooth.BluetoothViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, EXPORT }
 
 @Composable
-fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = null, btViewModel: BluetoothViewModel? = null) {
+fun ToolsScreen(
+    viewModel: ToolsViewModel,
+    packetViewModel: PacketViewModel? = null,
+    btViewModel: BluetoothViewModel? = null,
+    wifiInfo: WifiConnectionInfo? = null,
+    securityScore: SecurityScore? = null,
+    lanDevices: List<LanDevice> = emptyList()
+) {
     var selectedTool by remember { mutableStateOf(Tool.PING) }
+    val context = LocalContext.current
+    val exportIntent by viewModel.exportIntent.collectAsState()
+
+    LaunchedEffect(exportIntent) {
+        exportIntent?.let {
+            context.startActivity(Intent.createChooser(it, "Share EagleEye Report"))
+            viewModel.clearExportIntent()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -66,6 +85,7 @@ fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = n
             Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
             Tool.SHODAN      -> ShodanTool(viewModel)
             Tool.BT_SCAN     -> BtScanTool(btViewModel)
+            Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
         }
     }
 }
@@ -87,7 +107,8 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.HEADERS to (Icons.Default.Security to "Headers"),
         Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
         Tool.SHODAN to (Icons.Default.Radar to "Shodan"),
-        Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan")
+        Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan"),
+        Tool.EXPORT  to (Icons.Default.Share to "Export")
     )
     Row(
         modifier = Modifier
@@ -1874,6 +1895,163 @@ private fun BtDeviceCard(device: com.eagleeye.data.BtDevice) {
                     DetailRow2("Est. Distance", "~${"%.1f".format(distance)}m")
                 }
             }
+        }
+    }
+}
+
+// ── Export / Report ───────────────────────────────────────────────────────────
+
+@Composable
+private fun ExportTool(
+    viewModel: ToolsViewModel,
+    wifiInfo: WifiConnectionInfo?,
+    score: SecurityScore?,
+    devices: List<LanDevice>
+) {
+    val hasWifi    = wifiInfo?.isConnected == true
+    val hasScore   = score != null
+    val hasDevices = devices.isNotEmpty()
+    val canExport  = hasWifi || hasScore || hasDevices
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+        // ── Preview card ─────────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceDark)
+                .border(1.dp, CardBorderDark, RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("REPORT CONTENTS",
+                style = MaterialTheme.typography.labelMedium,
+                color = CyberGreen)
+            HorizontalDivider(color = CardBorderDark, thickness = 0.5.dp)
+
+            ReportSection(
+                icon = Icons.Default.Wifi,
+                label = "Network",
+                value = if (hasWifi) wifiInfo!!.ssid else "No connection data",
+                available = hasWifi
+            )
+            ReportSection(
+                icon = Icons.Default.Shield,
+                label = "Security Audit",
+                value = if (hasScore) "Grade ${score!!.grade}  ·  ${score.threats.size} threats  ·  ${score.total}/100"
+                        else "No audit data — run Security scan first",
+                available = hasScore
+            )
+            ReportSection(
+                icon = Icons.Default.DeviceHub,
+                label = "LAN Devices",
+                value = if (hasDevices) "${devices.size} device${if (devices.size != 1) "s" else ""}  ·  ${devices.count { it.isOnline }} online"
+                        else "No scan data — run LAN scan first",
+                available = hasDevices
+            )
+            ReportSection(
+                icon = Icons.Default.History,
+                label = "Event History",
+                value = "Last 100 events included automatically",
+                available = true
+            )
+        }
+
+        if (!canExport) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CyberOrange.copy(alpha = 0.08f))
+                    .border(1.dp, CyberOrange.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Info, null, tint = CyberOrange, modifier = Modifier.size(16.dp))
+                Text("Run a LAN scan and Security audit to populate the report.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = CyberOrange)
+            }
+        }
+
+        // ── Export buttons ───────────────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val wifi = wifiInfo ?: WifiConnectionInfo()
+            Button(
+                onClick = { viewModel.exportReport(wifi, score, devices, asJson = true) },
+                enabled = canExport,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberGreen.copy(alpha = 0.15f),
+                    contentColor = CyberGreen,
+                    disabledContainerColor = SurfaceVariantDark,
+                    disabledContentColor = TextDim
+                ),
+                border = BorderStroke(1.dp, if (canExport) CyberGreen.copy(alpha = 0.5f) else TextDim.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Code, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("JSON", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            }
+            Button(
+                onClick = { viewModel.exportReport(wifi, score, devices, asJson = false) },
+                enabled = canExport,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberBlue.copy(alpha = 0.15f),
+                    contentColor = CyberBlue,
+                    disabledContainerColor = SurfaceVariantDark,
+                    disabledContentColor = TextDim
+                ),
+                border = BorderStroke(1.dp, if (canExport) CyberBlue.copy(alpha = 0.5f) else TextDim.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Article, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("TEXT", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Format info
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(SurfaceVariantDark)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text("JSON", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), color = CyberGreen)
+            Text("Machine-readable · import into SIEM tools · full event log", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            Spacer(Modifier.height(4.dp))
+            Text("TEXT", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), color = CyberBlue)
+            Text("Human-readable · share via email/chat · formatted report", style = MaterialTheme.typography.bodySmall, color = TextDim)
+        }
+    }
+}
+
+@Composable
+private fun ReportSection(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, available: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(icon, null,
+            tint = if (available) CyberGreen else TextDim,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = if (available) TextSecondary else TextDim)
+            Text(value, style = MaterialTheme.typography.bodySmall, color = if (available) TextPrimary else TextDim)
+        }
+        if (available) {
+            Icon(Icons.Default.Check, null, tint = CyberGreen, modifier = Modifier.size(14.dp).padding(top = 2.dp))
         }
     }
 }
