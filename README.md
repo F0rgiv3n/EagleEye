@@ -102,17 +102,22 @@ app/src/main/java/com/eagleeye/
 
 ---
 
-### Part 3 — Security Engine 📋 Planned
+### Part 3 — Security Engine ✅
 | Feature | Status |
 |---|---|
-| ARP spoofing / MITM detection | 📋 |
-| Evil twin AP detection (same SSID, different BSSID) | 📋 |
-| DNS spoofing detection (baseline + change alert) | 📋 |
-| Deauth attack detection | 📋 |
-| Rogue DHCP server detection | 📋 |
-| Network security score (0–100) | 📋 |
-| Vulnerability warnings (WEP, WPS, open network, hidden SSID) | 📋 |
-| Unknown device alert on LAN | 📋 |
+| ARP spoofing / MITM detection (MAC baseline + conflict detection) | ✅ Done |
+| Evil twin AP detection (same SSID, different BSSID) | ✅ Done |
+| DNS spoofing detection (baseline DNS + change alert) | ✅ Done |
+| Unknown DNS server warning | ✅ Done |
+| WPS vulnerability detection | ✅ Done |
+| WEP / Open network / WPA weak encryption alerts | ✅ Done |
+| Hidden SSID warning | ✅ Done |
+| Multiple open networks alert | ✅ Done |
+| Network security score 0–100 with grade (A+→F) | ✅ Done |
+| Score breakdown: Encryption / No WPS / No Evil Twin / DNS / ARP / Devices | ✅ Done |
+| Threat cards with severity (CRITICAL / HIGH / MEDIUM / LOW / INFO) | ✅ Done |
+| Recommendations per threat | ✅ Done |
+| Auto-audit on app launch | ✅ Done |
 
 ---
 
