@@ -31,7 +31,7 @@ import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.modules.bluetooth.BluetoothViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, WHOIS, DHCP, EXPORT, SPEED_TEST, BANDWIDTH, MDNS, ARP, IPV6, DNS_BENCH, FIREWALL, INTERFACES }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, WHOIS, DHCP, EXPORT, SPEED_TEST, BANDWIDTH, MDNS, ARP, IPV6, DNS_BENCH, FIREWALL, INTERFACES, HTTP_CLIENT, CERT_TRANS }
 
 @Composable
 fun ToolsScreen(
@@ -96,6 +96,8 @@ fun ToolsScreen(
             Tool.DNS_BENCH   -> DnsBenchTool(viewModel)
             Tool.FIREWALL    -> FirewallTool(viewModel)
             Tool.INTERFACES  -> InterfacesTool(viewModel)
+            Tool.HTTP_CLIENT -> HttpClientTool(viewModel)
+            Tool.CERT_TRANS  -> CertTransTool(viewModel)
         }
     }
 }
@@ -128,7 +130,9 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.IPV6        to (Icons.Default.Lan to "IPv6"),
         Tool.DNS_BENCH   to (Icons.Default.Timer to "DNS Bench"),
         Tool.FIREWALL    to (Icons.Default.Fireplace to "Firewall"),
-        Tool.INTERFACES  to (Icons.Default.AccountTree to "Interfaces")
+        Tool.INTERFACES  to (Icons.Default.AccountTree to "Interfaces"),
+        Tool.HTTP_CLIENT to (Icons.Default.Http to "HTTP"),
+        Tool.CERT_TRANS  to (Icons.Default.VerifiedUser to "Certs")
     )
     Row(
         modifier = Modifier
@@ -180,9 +184,11 @@ private fun PingTool(viewModel: ToolsViewModel) {
     var count by remember { mutableStateOf("8") }
     val result by viewModel.pingResult.collectAsState()
     val running by viewModel.pingRunning.collectAsState()
+    val recentHosts by viewModel.recentHosts.collectAsState()
     val kb = LocalSoftwareKeyboardController.current
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        RecentHostsRow(recentHosts) { host = it }
         ToolInputRow(
             value = host, onValueChange = { host = it },
             label = "Host / IP", placeholder = "8.8.8.8",
@@ -198,7 +204,7 @@ private fun PingTool(viewModel: ToolsViewModel) {
             },
             onRun = {
                 kb?.hide()
-                viewModel.runPing(host, count.toIntOrNull()?.coerceIn(1, 30) ?: 8)
+                viewModel.runPingWithHistory(host, count.toIntOrNull()?.coerceIn(1, 30) ?: 8)
             },
             running = running
         )
@@ -289,13 +295,15 @@ private fun TracerouteTool(viewModel: ToolsViewModel) {
     var host by remember { mutableStateOf("google.com") }
     val hops by viewModel.traceHops.collectAsState()
     val running by viewModel.traceRunning.collectAsState()
+    val recentHosts by viewModel.recentHosts.collectAsState()
     val kb = LocalSoftwareKeyboardController.current
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        RecentHostsRow(recentHosts) { host = it }
         ToolInputRow(
             value = host, onValueChange = { host = it },
             label = "Host / IP", placeholder = "google.com",
-            onRun = { kb?.hide(); viewModel.runTraceroute(host) },
+            onRun = { kb?.hide(); viewModel.runTracerouteWithHistory(host) },
             running = running
         )
 
@@ -363,13 +371,15 @@ private fun PortScanTool(viewModel: ToolsViewModel) {
     val results by viewModel.portResults.collectAsState()
     val progress by viewModel.portScanProgress.collectAsState()
     val running by viewModel.portScanRunning.collectAsState()
+    val recentHosts by viewModel.recentHosts.collectAsState()
     val kb = LocalSoftwareKeyboardController.current
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        RecentHostsRow(recentHosts) { host = it }
         ToolInputRow(
             value = host, onValueChange = { host = it },
             label = "Target IP / Host", placeholder = "192.168.1.1",
-            onRun = { kb?.hide(); viewModel.runPortScan(host, quickScan) },
+            onRun = { kb?.hide(); viewModel.runPortScanWithHistory(host, quickScan) },
             running = running
         )
 
@@ -1988,16 +1998,18 @@ private fun BtDeviceCard(device: com.eagleeye.data.BtDevice) {
 private fun WhoisTool(viewModel: ToolsViewModel) {
     val result by viewModel.whoisResult.collectAsState()
     val running by viewModel.whoisRunning.collectAsState()
+    val history by viewModel.whoisHistory.collectAsState()
     var query by remember { mutableStateOf("") }
     val kb = LocalSoftwareKeyboardController.current
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        RecentHostsRow(history, label = "Recent", color = CyberBlue) { query = it }
         ToolInputRow(
             value = query, onValueChange = { query = it },
             label = "Domain or IP",
             placeholder = "example.com or 8.8.8.8",
             running = running,
-            onRun = { kb?.hide(); viewModel.runWhois(query.trim()) },
+            onRun = { kb?.hide(); viewModel.runWhoisWithHistory(query.trim()) },
             runLabel = "LOOKUP"
         )
 
@@ -2971,6 +2983,346 @@ private fun InterfacesTool(viewModel: ToolsViewModel) {
                 if (iface.ipv6.isNotBlank()) DetailRow2("IPv6", iface.ipv6.take(36))
                 if (iface.mac.isNotBlank()) DetailRow2("MAC", iface.mac)
                 if (iface.mtu > 0) DetailRow2("MTU", "${iface.mtu} bytes")
+            }
+        }
+    }
+}
+
+// ── RECENT HOSTS ROW ──────────────────────────────────────────────────────────
+
+@Composable
+private fun RecentHostsRow(
+    hosts: List<String>,
+    label: String = "Recent",
+    color: Color = CyberGreen,
+    onSelect: (String) -> Unit
+) {
+    if (hosts.isEmpty()) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "$label:",
+            style = MaterialTheme.typography.labelSmall,
+            color = TextDim
+        )
+        hosts.forEach { host ->
+            Text(
+                host,
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(color.copy(alpha = 0.1f))
+                    .border(1.dp, color.copy(alpha = 0.25f), RoundedCornerShape(4.dp))
+                    .clickable { onSelect(host) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+// ── HTTP CLIENT ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun HttpClientTool(viewModel: ToolsViewModel) {
+    var url by remember { mutableStateOf("https://") }
+    var method by remember { mutableStateOf("GET") }
+    var body by remember { mutableStateOf("") }
+    var showBody by remember { mutableStateOf(false) }
+    var customHeader by remember { mutableStateOf("") }
+    val result by viewModel.httpResult.collectAsState()
+    val running by viewModel.httpRunning.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+    val methods = listOf("GET", "POST", "HEAD", "PUT", "DELETE")
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Send HTTP requests and inspect responses, headers, and status codes.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim)
+
+        // Method selector
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            methods.forEach { m ->
+                val selected = method == m
+                val mColor = when (m) {
+                    "GET"    -> CyberGreen
+                    "POST"   -> CyberBlue
+                    "DELETE" -> CyberRed
+                    else     -> CyberYellow
+                }
+                Text(
+                    m,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) mColor else TextDim,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (selected) mColor.copy(alpha = 0.15f) else SurfaceVariantDark)
+                        .border(1.dp, if (selected) mColor.copy(alpha = 0.4f) else Color.Transparent, RoundedCornerShape(6.dp))
+                        .clickable { method = m; showBody = m in listOf("POST", "PUT") }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        // URL field
+        OutlinedTextField(
+            value = url,
+            onValueChange = { url = it },
+            label = { Text("URL", style = MaterialTheme.typography.labelMedium) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            colors = cyberTextFieldColors(),
+            shape = RoundedCornerShape(8.dp),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Uri,
+                imeAction = ImeAction.Done
+            )
+        )
+
+        // Body (POST/PUT)
+        AnimatedVisibility(visible = showBody || method == "POST" || method == "PUT") {
+            OutlinedTextField(
+                value = body,
+                onValueChange = { body = it },
+                label = { Text("Request Body", style = MaterialTheme.typography.labelMedium) },
+                modifier = Modifier.fillMaxWidth().height(100.dp),
+                colors = cyberTextFieldColors(),
+                shape = RoundedCornerShape(8.dp)
+            )
+        }
+
+        Button(
+            onClick = { kb?.hide(); viewModel.runHttpRequest(url, method, body) },
+            enabled = !running && url.length > 8,
+            modifier = Modifier.fillMaxWidth().height(46.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CyberGreen.copy(alpha = 0.12f), contentColor = CyberGreen,
+                disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+            ),
+            border = BorderStroke(1.dp, if (!running && url.length > 8) CyberGreen.copy(alpha = 0.4f) else TextDim.copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (running) CircularProgressIndicator(Modifier.size(14.dp), CyberGreen, strokeWidth = 2.dp)
+            else Icon(Icons.Default.Http, null, Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (running) "SENDING…" else "SEND $method", fontWeight = FontWeight.Bold)
+        }
+
+        if (running) LoadingCard("Sending $method request...")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+                return@let
+            }
+            val statusColor = when (r.statusCode) {
+                in 200..299 -> CyberGreen
+                in 300..399 -> CyberBlue
+                in 400..499 -> CyberOrange
+                else        -> CyberRed
+            }
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "${r.statusCode}",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = statusColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(r.statusMessage, style = MaterialTheme.typography.bodySmall, color = statusColor)
+                        }
+                        Text(r.url.take(50), style = MaterialTheme.typography.labelSmall, color = TextDim)
+                    }
+                    Text(
+                        "${r.durationMs}ms",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (r.durationMs < 500) CyberGreen else if (r.durationMs < 2000) CyberYellow else CyberOrange
+                    )
+                }
+
+                if (r.responseHeaders.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    var showHeaders by remember { mutableStateOf(false) }
+                    TextButton(
+                        onClick = { showHeaders = !showHeaders },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            if (showHeaders) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            null, tint = TextDim, modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "${if (showHeaders) "Hide" else "Show"} headers (${r.responseHeaders.size})",
+                            style = MaterialTheme.typography.bodySmall, color = TextDim
+                        )
+                    }
+                    AnimatedVisibility(visible = showHeaders) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            r.responseHeaders.entries.take(20).forEach { (k, v) ->
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(k, style = MaterialTheme.typography.labelSmall, color = CyberBlue, modifier = Modifier.weight(0.4f))
+                                    Text(v.take(80), style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.weight(0.6f))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (r.responseBody.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    var showBody2 by remember { mutableStateOf(false) }
+                    TextButton(
+                        onClick = { showBody2 = !showBody2 },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            if (showBody2) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            null, tint = TextDim, modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "${if (showBody2) "Hide" else "Show"} body (${r.responseBody.length} chars)",
+                            style = MaterialTheme.typography.bodySmall, color = TextDim
+                        )
+                    }
+                    AnimatedVisibility(visible = showBody2) {
+                        Text(
+                            r.responseBody.take(2000),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            ),
+                            color = TextDim,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SurfaceVariantDark)
+                                .padding(8.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── CERTIFICATE TRANSPARENCY ──────────────────────────────────────────────────
+
+@Composable
+private fun CertTransTool(viewModel: ToolsViewModel) {
+    var domain by remember { mutableStateOf("") }
+    val result by viewModel.certTransResult.collectAsState()
+    val running by viewModel.certTransRunning.collectAsState()
+    val recentHosts by viewModel.recentHosts.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Queries crt.sh certificate transparency logs to find all SSL/TLS certificates issued for a domain.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+
+        RecentHostsRow(recentHosts.filter { !it.startsWith("192") && !it.startsWith("10.") }) { domain = it }
+
+        ToolInputRow(
+            value = domain, onValueChange = { domain = it },
+            label = "Domain", placeholder = "example.com",
+            running = running,
+            onRun = {
+                kb?.hide()
+                viewModel.addRecentHost(domain)
+                viewModel.runCertTransparency(domain)
+            },
+            runLabel = "SEARCH"
+        )
+
+        if (running) LoadingCard("Querying crt.sh transparency logs...")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+                return@let
+            }
+
+            if (r.entries.isEmpty()) {
+                ResultCard {
+                    Text("No certificates found for ${r.domain}", style = MaterialTheme.typography.bodySmall, color = TextDim)
+                }
+                return@let
+            }
+
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(r.domain, style = MaterialTheme.typography.titleSmall, color = CyberGreen, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${r.entries.size} certs",
+                        style = MaterialTheme.typography.labelMedium, color = CyberBlue,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(CyberBlue.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = CardBorderDark, thickness = 0.5.dp)
+                Spacer(Modifier.height(8.dp))
+
+                r.entries.take(30).forEach { cert ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(SurfaceVariantDark)
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(cert.commonName, style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Medium)
+                        if (cert.nameValue.isNotBlank() && cert.nameValue != cert.commonName) {
+                            Text(cert.nameValue.take(60), style = MaterialTheme.typography.labelSmall, color = CyberBlue)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(cert.issuerCn.take(40), style = MaterialTheme.typography.labelSmall, color = TextDim)
+                            Text("${cert.notBefore} → ${cert.notAfter}", style = MaterialTheme.typography.labelSmall, color = TextDim)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+                if (r.entries.size > 30) {
+                    Text(
+                        "… and ${r.entries.size - 30} more",
+                        style = MaterialTheme.typography.bodySmall, color = TextDim
+                    )
+                }
             }
         }
     }

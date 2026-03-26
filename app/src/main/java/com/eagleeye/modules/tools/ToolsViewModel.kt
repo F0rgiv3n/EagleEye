@@ -454,4 +454,172 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             _shodanRunning.value = false
         }
     }
+
+    // ── Recent Hosts ─────────────────────────────────────────────────────────
+    private val _recentHosts = MutableStateFlow<List<String>>(emptyList())
+    val recentHosts: StateFlow<List<String>> = _recentHosts.asStateFlow()
+
+    fun addRecentHost(host: String) {
+        val h = host.trim()
+        if (h.isBlank()) return
+        _recentHosts.value = (listOf(h) + _recentHosts.value.filter { it != h }).take(10)
+    }
+
+    // Override runPing/runTraceroute/runPortScan/runDnsLookup/runWhois to record hosts
+    fun runPingWithHistory(host: String, count: Int = 8) {
+        addRecentHost(host)
+        runPing(host, count)
+    }
+
+    fun runTracerouteWithHistory(host: String) {
+        addRecentHost(host)
+        runTraceroute(host)
+    }
+
+    fun runPortScanWithHistory(host: String, quick: Boolean = true) {
+        addRecentHost(host)
+        runPortScan(host, quick)
+    }
+
+    fun runDnsLookupWithHistory(query: String) {
+        addRecentHost(query)
+        runDnsLookup(query)
+    }
+
+    // ── WHOIS History ────────────────────────────────────────────────────────
+    private val _whoisHistory = MutableStateFlow<List<String>>(emptyList())
+    val whoisHistory: StateFlow<List<String>> = _whoisHistory.asStateFlow()
+
+    fun runWhoisWithHistory(query: String) {
+        val q = query.trim()
+        if (q.isNotBlank()) {
+            _whoisHistory.value = (listOf(q) + _whoisHistory.value.filter { it != q }).take(10)
+        }
+        runWhois(q)
+    }
+
+    // ── In-memory caches (GeoIP / WHOIS) ─────────────────────────────────────
+    private val geoIpCache = mutableMapOf<String, com.eagleeye.data.GeoPoint>()
+    private val whoisCache = mutableMapOf<String, com.eagleeye.data.WhoisResult>()
+
+    fun runWhoisCached(query: String) {
+        val q = query.trim()
+        val cached = whoisCache[q]
+        if (cached != null) {
+            _whoisResult.value = cached
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _whoisRunning.value = true
+            val result = whoisClient.lookup(q)
+            if (result?.error == null && result != null) whoisCache[q] = result
+            _whoisResult.value = result
+            _whoisRunning.value = false
+        }
+    }
+
+    // ── HTTP Client ──────────────────────────────────────────────────────────
+    private val _httpResult = MutableStateFlow<com.eagleeye.data.HttpClientResult?>(null)
+    val httpResult: StateFlow<com.eagleeye.data.HttpClientResult?> = _httpResult.asStateFlow()
+    private val _httpRunning = MutableStateFlow(false)
+    val httpRunning: StateFlow<Boolean> = _httpRunning.asStateFlow()
+
+    fun runHttpRequest(url: String, method: String, body: String = "", headers: Map<String, String> = emptyMap()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _httpRunning.value = true
+            _httpResult.value = null
+            _httpResult.value = try {
+                val start = System.currentTimeMillis()
+                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = method
+                connection.connectTimeout = 10_000
+                connection.readTimeout = 10_000
+                connection.setRequestProperty("User-Agent", "EagleEye/1.0")
+                headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
+                if (method == "POST" && body.isNotBlank()) {
+                    connection.doOutput = true
+                    connection.outputStream.use { it.write(body.toByteArray()) }
+                }
+                val statusCode = connection.responseCode
+                val statusMsg = connection.responseMessage ?: ""
+                val respHeaders = connection.headerFields.entries
+                    .filter { it.key != null }
+                    .associate { it.key to it.value.joinToString(", ") }
+                val stream = if (statusCode >= 400) connection.errorStream else connection.inputStream
+                val respBody = stream?.bufferedReader()?.use { it.readText() }?.take(8192) ?: ""
+                val duration = System.currentTimeMillis() - start
+                com.eagleeye.data.HttpClientResult(
+                    url = url, method = method,
+                    statusCode = statusCode, statusMessage = statusMsg,
+                    responseHeaders = respHeaders, responseBody = respBody,
+                    durationMs = duration
+                )
+            } catch (e: Exception) {
+                com.eagleeye.data.HttpClientResult(url = url, method = method, error = e.message ?: "Request failed")
+            }
+            _httpRunning.value = false
+        }
+    }
+
+    // ── Certificate Transparency ─────────────────────────────────────────────
+    private val _certTransResult = MutableStateFlow<com.eagleeye.data.CertTransResult?>(null)
+    val certTransResult: StateFlow<com.eagleeye.data.CertTransResult?> = _certTransResult.asStateFlow()
+    private val _certTransRunning = MutableStateFlow(false)
+    val certTransRunning: StateFlow<Boolean> = _certTransRunning.asStateFlow()
+
+    fun runCertTransparency(domain: String) {
+        val d = domain.trim().lowercase()
+        viewModelScope.launch(Dispatchers.IO) {
+            _certTransRunning.value = true
+            _certTransResult.value = null
+            _certTransResult.value = try {
+                val url = java.net.URL("https://crt.sh/?q=%25.$d&output=json")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 12_000
+                conn.readTimeout = 12_000
+                conn.setRequestProperty("Accept", "application/json")
+                val json = conn.inputStream.bufferedReader().use { it.readText() }
+                val entries = parseCertShJson(json, d)
+                com.eagleeye.data.CertTransResult(domain = d, entries = entries)
+            } catch (e: Exception) {
+                com.eagleeye.data.CertTransResult(domain = d, error = e.message ?: "Lookup failed")
+            }
+            _certTransRunning.value = false
+        }
+    }
+
+    private fun parseCertShJson(json: String, domain: String): List<com.eagleeye.data.CertEntry> {
+        // Minimal JSON array parser without external libraries
+        val entries = mutableListOf<com.eagleeye.data.CertEntry>()
+        try {
+            val itemRegex = Regex("""\{[^{}]*\}""")
+            val idR    = Regex(""""id"\s*:\s*(\d+)""")
+            val issuerR = Regex(""""issuer_ca_id"\s*:\s*\d+[^}]*?"issuer_name"\s*:\s*"([^"]+)"""", RegexOption.DOT_MATCHES_ALL)
+            val notBeforeR = Regex(""""not_before"\s*:\s*"([^"]+)"""")
+            val notAfterR  = Regex(""""not_after"\s*:\s*"([^"]+)"""")
+            val cnR  = Regex(""""common_name"\s*:\s*"([^"]+)"""")
+            val nameR = Regex(""""name_value"\s*:\s*"([^"]+)"""")
+
+            val seen = mutableSetOf<String>()
+            itemRegex.findAll(json).take(200).forEach { m ->
+                val obj = m.value
+                val id = idR.find(obj)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+                val issuer = issuerR.find(obj)?.groupValues?.get(1) ?: ""
+                val notBefore = notBeforeR.find(obj)?.groupValues?.get(1) ?: ""
+                val notAfter  = notAfterR.find(obj)?.groupValues?.get(1) ?: ""
+                val cn = cnR.find(obj)?.groupValues?.get(1) ?: ""
+                val name = nameR.find(obj)?.groupValues?.get(1) ?: ""
+                val key = "$cn|$notBefore|$notAfter"
+                if (key !in seen) {
+                    seen += key
+                    entries += com.eagleeye.data.CertEntry(
+                        id = id, issuerCn = issuer.take(60),
+                        notBefore = notBefore.take(10), notAfter = notAfter.take(10),
+                        commonName = cn, nameValue = name
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return entries
+    }
 }

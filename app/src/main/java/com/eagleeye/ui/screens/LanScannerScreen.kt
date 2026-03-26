@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,12 +20,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eagleeye.data.ScanSnapshot
 import com.eagleeye.data.IoTProfile
 import com.eagleeye.data.IoTRisk
 import com.eagleeye.data.LanDevice
@@ -37,18 +41,41 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private enum class LanFilter { ALL, ONLINE, UNKNOWN, HAS_PORTS }
+
 @Composable
 fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null, wifiViewModel: WifiViewModel? = null) {
     val scanState by viewModel.scanState.collectAsState()
     val savedDevices by viewModel.savedDevices.collectAsState()
     val iotProfiles by (iotViewModel?.profiles ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
     val iotScanning by (iotViewModel?.scanning ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
+    val scanHistory by viewModel.scanHistory.collectAsState()
 
     var showTopology by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var activeFilter by remember { mutableStateOf(LanFilter.ALL) }
 
-    val devices = when (val s = scanState) {
+    val allDevices = when (val s = scanState) {
         is ScanState.Done -> s.devices
         else -> savedDevices
+    }
+
+    val devices = remember(allDevices, searchQuery, activeFilter) {
+        allDevices.filter { d ->
+            val matchesSearch = searchQuery.isBlank() ||
+                d.displayName.contains(searchQuery, ignoreCase = true) ||
+                d.ip.contains(searchQuery) ||
+                d.mac.contains(searchQuery, ignoreCase = true) ||
+                d.vendor.contains(searchQuery, ignoreCase = true)
+            val matchesFilter = when (activeFilter) {
+                LanFilter.ALL      -> true
+                LanFilter.ONLINE   -> d.isOnline
+                LanFilter.UNKNOWN  -> !d.isKnown
+                LanFilter.HAS_PORTS -> d.openPortList.isNotEmpty()
+            }
+            matchesSearch && matchesFilter
+        }
     }
 
     val connectionInfo by (wifiViewModel?.connectionInfo ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
@@ -61,6 +88,13 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
             } else "192.168.1.1"
         }
 
+    if (showHistory && scanHistory.isNotEmpty()) {
+        ScanHistoryDialog(
+            history = scanHistory,
+            onDismiss = { showHistory = false }
+        )
+    }
+
     if (showTopology) {
         Box(
             modifier = Modifier
@@ -68,7 +102,7 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
                 .background(BackgroundDark)
         ) {
             TopologyScreen(
-                devices = devices,
+                devices = allDevices,
                 gatewayIp = gatewayIp,
                 onBack = { showTopology = false }
             )
@@ -103,6 +137,11 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (scanHistory.isNotEmpty()) {
+                    IconButton(onClick = { showHistory = true }) {
+                        Icon(Icons.Default.History, contentDescription = "Scan History", tint = CyberYellow)
+                    }
+                }
                 IconButton(onClick = { showTopology = true }) {
                     Icon(Icons.Default.Hub, contentDescription = "Topology Map", tint = CyberBlue)
                 }
@@ -170,24 +209,84 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
             }
         }
 
+        // Search bar
+        if (allDevices.isNotEmpty()) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search by name, IP, MAC, vendor…", style = MaterialTheme.typography.bodySmall, color = TextDim) },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = TextDim, modifier = Modifier.size(16.dp)) },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Close, null, tint = TextDim, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CyberGreen.copy(alpha = 0.5f),
+                    unfocusedBorderColor = CardBorderDark,
+                    cursorColor = CyberGreen,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
+                ),
+                shape = RoundedCornerShape(8.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Filter chips
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                LanFilter.values().forEach { filter ->
+                    val selected = activeFilter == filter
+                    val (label, color) = when (filter) {
+                        LanFilter.ALL      -> "ALL" to CyberGreen
+                        LanFilter.ONLINE   -> "ONLINE" to CyberGreen
+                        LanFilter.UNKNOWN  -> "UNKNOWN" to CyberOrange
+                        LanFilter.HAS_PORTS -> "HAS PORTS" to CyberYellow
+                    }
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) color else TextDim,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (selected) color.copy(alpha = 0.14f) else SurfaceVariantDark)
+                            .border(1.dp, if (selected) color.copy(alpha = 0.4f) else Color.Transparent, RoundedCornerShape(20.dp))
+                            .clickable { activeFilter = filter }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         // Stats row
-        if (devices.isNotEmpty()) {
-            val onlineCount = devices.count { it.isOnline }
-            val unknownCount = devices.count { !it.isKnown }
+        if (allDevices.isNotEmpty()) {
+            val onlineCount = allDevices.count { it.isOnline }
+            val unknownCount = allDevices.count { !it.isKnown }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 StatChip(label = "ONLINE", value = "$onlineCount", color = CyberGreen, modifier = Modifier.weight(1f))
-                StatChip(label = "TOTAL", value = "${devices.size}", color = CyberBlue, modifier = Modifier.weight(1f))
+                StatChip(label = "TOTAL", value = "${allDevices.size}", color = CyberBlue, modifier = Modifier.weight(1f))
                 StatChip(label = "UNKNOWN", value = "$unknownCount", color = if (unknownCount > 0) CyberOrange else TextDim, modifier = Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(12.dp))
         }
 
         // Device list
-        if (devices.isEmpty() && scanState is ScanState.Idle) {
+        if (allDevices.isEmpty() && scanState is ScanState.Idle) {
             EmptyLanState()
+        } else if (devices.isEmpty() && allDevices.isNotEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                Text("No devices match the filter", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(devices, key = { it.mac }) { device ->
@@ -200,6 +299,62 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
             }
         }
     }
+}
+
+@Composable
+private fun ScanHistoryDialog(history: List<ScanSnapshot>, onDismiss: () -> Unit) {
+    val sdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(12.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.History, null, tint = CyberYellow, modifier = Modifier.size(18.dp))
+                Text("Scan History", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                history.reversed().forEachIndexed { idx, snap ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceVariantDark)
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                sdf.format(java.util.Date(snap.timestamp)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CyberYellow
+                            )
+                            if (idx == 0) {
+                                Text("LATEST", style = MaterialTheme.typography.labelSmall, color = CyberGreen)
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("${snap.totalDevices} devices", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            Text("${snap.onlineDevices} online", style = MaterialTheme.typography.bodySmall, color = CyberGreen)
+                            if (snap.newDevices > 0) {
+                                Text("+${snap.newDevices} new", style = MaterialTheme.typography.bodySmall, color = CyberOrange)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = CyberGreen)
+            }
+        }
+    )
 }
 
 @Composable

@@ -44,4 +44,27 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setAutoStartMonitor(enabled: Boolean) = viewModelScope.launch {
         repo.update { copy(autoStartMonitor = enabled) }
     }
+
+    fun setApiKey(which: String, key: String) = viewModelScope.launch {
+        repo.update {
+            when (which) {
+                "shodan"  -> copy(shodanApiKey = key)
+                "abusipdb" -> copy(abuseIpDbKey = key)
+                else      -> this
+            }
+        }
+    }
+
+    fun setAutoScanOnConnect(enabled: Boolean) = viewModelScope.launch {
+        repo.update { copy(autoScanOnConnect = enabled) }
+    }
+
+    fun addTrustedSsid(ssid: String) = viewModelScope.launch {
+        if (ssid.isBlank()) return@launch
+        repo.update { copy(trustedSsids = trustedSsids + ssid.trim()) }
+    }
+
+    fun removeTrustedSsid(ssid: String) = viewModelScope.launch {
+        repo.update { copy(trustedSsids = trustedSsids - ssid) }
+    }
 }

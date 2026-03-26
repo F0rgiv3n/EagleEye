@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,6 +19,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.eagleeye.modules.settings.SettingsViewModel
 import com.eagleeye.ui.theme.*
@@ -77,6 +81,29 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 checked = settings.portScanQuickMode,
                 activeColor = CyberBlue
             ) { viewModel.setPortScanQuick(it) }
+        }
+
+        // API Keys
+        SettingsSection(title = "API KEYS") {
+            Text(
+                "Optional API keys to unlock full threat intelligence features.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextDim
+            )
+            Spacer(Modifier.height(4.dp))
+            ApiKeyField(
+                icon = Icons.Default.Radar,
+                label = "Shodan API Key",
+                value = settings.shodanApiKey,
+                onSave = { viewModel.setApiKey("shodan", it) }
+            )
+            Spacer(Modifier.height(8.dp))
+            ApiKeyField(
+                icon = Icons.Default.GppBad,
+                label = "AbuseIPDB API Key",
+                value = settings.abuseIpDbKey,
+                onSave = { viewModel.setApiKey("abusipdb", it) }
+            )
         }
 
         // Notifications
@@ -139,6 +166,74 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 checked = settings.autoStartMonitor,
                 activeColor = CyberGreen
             ) { viewModel.setAutoStartMonitor(it) }
+
+            HorizontalDivider(color = CardBorderDark, thickness = 0.5.dp)
+
+            SettingsSwitchRow(
+                icon = Icons.Default.WifiFind,
+                label = "Auto-scan on Connect",
+                subtitle = "Run LAN scan when Wi-Fi connection is established",
+                checked = settings.autoScanOnConnect,
+                activeColor = CyberBlue
+            ) { viewModel.setAutoScanOnConnect(it) }
+        }
+
+        // Trusted Networks
+        SettingsSection(title = "TRUSTED NETWORKS") {
+            Text(
+                "SSIDs marked as trusted are treated as safe networks. Unknown networks will trigger a warning.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextDim
+            )
+            Spacer(Modifier.height(8.dp))
+
+            if (settings.trustedSsids.isEmpty()) {
+                Text(
+                    "No trusted networks configured",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDim
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    settings.trustedSsids.sorted().forEach { ssid ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(CyberGreen.copy(alpha = 0.06f))
+                                .border(1.dp, CyberGreen.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.WifiProtectedSetup, null,
+                                    tint = CyberGreen,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(ssid, style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                            }
+                            IconButton(
+                                onClick = { viewModel.removeTrustedSsid(ssid) },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close, null,
+                                    tint = TextDim,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            AddSsidField { viewModel.addTrustedSsid(it) }
         }
 
         // About
@@ -163,6 +258,109 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
 
         Spacer(Modifier.height(8.dp))
     }
+}
+
+@Composable
+private fun ApiKeyField(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    onSave: (String) -> Unit
+) {
+    var text by remember(value) { mutableStateOf(value) }
+    var visible by remember { mutableStateOf(false) }
+    val isDirty = text != value
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, null, tint = TextDim, modifier = Modifier.size(14.dp))
+            Text(label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { visible = !visible }, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            null, tint = TextDim, modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    if (isDirty) {
+                        IconButton(onClick = { onSave(text); }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Save, null, tint = CyberGreen, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CyberGreen.copy(alpha = 0.5f),
+                unfocusedBorderColor = CardBorderDark,
+                focusedLabelColor = CyberGreen,
+                unfocusedLabelColor = TextDim,
+                cursorColor = CyberGreen,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            ),
+            shape = RoundedCornerShape(8.dp),
+            placeholder = {
+                Text(
+                    if (value.isNotBlank()) "Key saved" else "Enter API key",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDim
+                )
+            }
+        )
+        if (isDirty) {
+            Text(
+                "Tap save icon to apply",
+                style = MaterialTheme.typography.labelSmall,
+                color = CyberGreen.copy(alpha = 0.7f)
+            )
+        } else if (value.isNotBlank()) {
+            Text(
+                "Key saved (${value.length} chars)",
+                style = MaterialTheme.typography.labelSmall,
+                color = CyberGreen.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddSsidField(onAdd: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text("Add SSID (e.g. HomeNetwork)", style = MaterialTheme.typography.bodySmall, color = TextDim) },
+        trailingIcon = {
+            IconButton(
+                onClick = { if (text.isNotBlank()) { onAdd(text); text = "" } },
+                enabled = text.isNotBlank()
+            ) {
+                Icon(Icons.Default.Add, null, tint = if (text.isNotBlank()) CyberGreen else TextDim, modifier = Modifier.size(18.dp))
+            }
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = CyberGreen.copy(alpha = 0.5f),
+            unfocusedBorderColor = CardBorderDark,
+            cursorColor = CyberGreen,
+            focusedTextColor = TextPrimary,
+            unfocusedTextColor = TextPrimary
+        ),
+        shape = RoundedCornerShape(8.dp)
+    )
 }
 
 @Composable

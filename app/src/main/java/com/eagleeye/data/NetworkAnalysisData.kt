@@ -138,3 +138,43 @@ data class SignalSample(
     val rssi: Int,
     val ssid: String
 )
+
+// ── HTTP Client ───────────────────────────────────────────────────────────────
+
+data class HttpClientResult(
+    val url: String,
+    val method: String,
+    val statusCode: Int = 0,
+    val statusMessage: String = "",
+    val responseHeaders: Map<String, String> = emptyMap(),
+    val responseBody: String = "",
+    val durationMs: Long = 0,
+    val error: String? = null
+)
+
+// ── Certificate Transparency ─────────────────────────────────────────────────
+
+data class CertEntry(
+    val id: Long,
+    val issuerCn: String,
+    val notBefore: String,
+    val notAfter: String,
+    val commonName: String,
+    val nameValue: String
+)
+
+data class CertTransResult(
+    val domain: String,
+    val entries: List<CertEntry> = emptyList(),
+    val error: String? = null
+)
+
+// ── Scan Snapshot (LAN history) ───────────────────────────────────────────────
+
+data class ScanSnapshot(
+    val timestamp: Long,
+    val totalDevices: Int,
+    val onlineDevices: Int,
+    val newDevices: Int,
+    val deviceIps: Set<String>
+)

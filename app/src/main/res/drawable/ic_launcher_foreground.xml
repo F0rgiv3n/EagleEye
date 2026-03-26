@@ -4,14 +4,114 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- ── Dark feather bands (top / bottom) ────────────────────────────── -->
     <path
-        android:fillColor="#00FF88"
-        android:pathData="M54,30 L54,78 M30,54 L78,54 M38,38 L70,70 M70,38 L38,70"
-        android:strokeColor="#00FF88"
-        android:strokeWidth="4" />
+        android:fillColor="#0F172A"
+        android:pathData="M0,0 L108,0 L108,36 C88,32 72,26 54,26 C36,26 20,32 0,36 Z"/>
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M0,108 L108,108 L108,72 C88,76 72,82 54,82 C36,82 20,76 0,72 Z"/>
+
+    <!-- ── Feather stroke accents ────────────────────────────────────────── -->
+    <!-- top-left -->
+    <path
+        android:fillColor="#1A2A45"
+        android:pathData="M2,8 L24,28 L6,26 Z M2,20 L20,36 L4,36 Z"/>
+    <!-- top-right -->
+    <path
+        android:fillColor="#1A2A45"
+        android:pathData="M106,8 L84,28 L102,26 Z M106,20 L88,36 L104,36 Z"/>
+    <!-- bottom-left -->
+    <path
+        android:fillColor="#1A2A45"
+        android:pathData="M2,100 L24,80 L6,82 Z M2,88 L20,72 L4,72 Z"/>
+    <!-- bottom-right -->
+    <path
+        android:fillColor="#1A2A45"
+        android:pathData="M106,100 L84,80 L102,82 Z M106,88 L88,72 L104,72 Z"/>
+
+    <!-- ── Sclera — almond / raptor eye shape, yellowish-cream ───────────── -->
+    <path
+        android:fillColor="#EFE0A2"
+        android:pathData="M16,54 C18,30 38,22 54,22 C70,22 90,30 92,54 C90,78 70,86 54,86 C38,86 18,78 16,54 Z"/>
+
+    <!-- ── Iris outer dark ring ──────────────────────────────────────────── -->
+    <path
+        android:fillColor="#7A4A00"
+        android:pathData="M28,54 A26,26 0 0,1 54,28 A26,26 0 0,1 80,54 A26,26 0 0,1 54,80 A26,26 0 0,1 28,54 Z"/>
+
+    <!-- ── Iris — deep amber gold ────────────────────────────────────────── -->
+    <path
+        android:fillColor="#C87B0C"
+        android:pathData="M30,54 A24,24 0 0,1 54,30 A24,24 0 0,1 78,54 A24,24 0 0,1 54,78 A24,24 0 0,1 30,54 Z"/>
+
+    <!-- ── Iris — brighter inner zone ───────────────────────────────────── -->
+    <path
+        android:fillColor="#E8960E"
+        android:pathData="M36,54 A18,18 0 0,1 54,36 A18,18 0 0,1 72,54 A18,18 0 0,1 54,72 A18,18 0 0,1 36,54 Z"/>
+
+    <!-- ── Iris radial spokes (8 directions) ─────────────────────────────── -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#AA6200"
+        android:strokeWidth="1.4"
+        android:pathData="M54,36 L54,30 M54,72 L54,78 M36,54 L30,54 M72,54 L78,54
+                          M41,41 L37,37 M67,41 L71,37 M41,67 L37,71 M67,67 L71,71"/>
+
+    <!-- ── Iris mid-ring bright accent ──────────────────────────────────── -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#F4A620"
+        android:strokeWidth="0.8"
+        android:pathData="M38,54 A16,16 0 0,1 54,38 A16,16 0 0,1 70,54 A16,16 0 0,1 54,70 A16,16 0 0,1 38,54 Z"/>
+
+    <!-- ── Pupil — dark oval, slightly vertical (raptor) ────────────────── -->
+    <path
+        android:fillColor="#07090E"
+        android:pathData="M54,41 A10,13 0 0,1 64,54 A10,13 0 0,1 54,67 A10,13 0 0,1 44,54 A10,13 0 0,1 54,41 Z"/>
+
+    <!-- ── Pupil depth (very slightly lighter inner core) ───────────────── -->
+    <path
+        android:fillColor="#0D1220"
+        android:pathData="M54,44 A7,9 0 0,1 61,54 A7,9 0 0,1 54,63 A7,9 0 0,1 47,54 A7,9 0 0,1 54,44 Z"/>
+
+    <!-- ── Catchlight — main white reflection (upper-right) ─────────────── -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M59,45 A4,3 0 0,1 63,48 A4,3 0 0,1 59,51 A4,3 0 0,1 55,48 A4,3 0 0,1 59,45 Z"/>
+
+    <!-- ── Catchlight — tiny secondary (lower-left) ─────────────────────── -->
+    <path
+        android:fillColor="#99FFFFFF"
+        android:pathData="M49,61 A2.5,2 0 0,1 51.5,63 A2.5,2 0 0,1 49,65 A2.5,2 0 0,1 46.5,63 A2.5,2 0 0,1 49,61 Z"/>
+
+    <!-- ── Brow ridge — sharp upper eyelid (raptor fierce look) ─────────── -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#060B14"
+        android:strokeWidth="5"
+        android:pathData="M16,54 C18,30 38,22 54,22 C70,22 90,30 92,54"/>
+
+    <!-- ── Nictitating membrane — subtle lower arc ──────────────────────── -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#C8A860"
+        android:strokeWidth="0.9"
+        android:pathData="M22,62 C38,72 70,72 86,62"/>
+
+    <!-- ── Cyber glow outline — neon green, EagleEye theme ──────────────── -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#00FF88"
-        android:strokeWidth="3"
-        android:pathData="M54,20 A34,34 0 1,1 53.9,20" />
+        android:strokeWidth="2"
+        android:pathData="M16,54 C18,30 38,22 54,22 C70,22 90,30 92,54 C90,78 70,86 54,86 C38,86 18,78 16,54 Z"/>
+
+    <!-- ── Outer glow (soft, wider) ──────────────────────────────────────── -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#1AFF88"
+        android:strokeWidth="0.8"
+        android:pathData="M13,54 C15,26 36,19 54,19 C72,19 93,26 95,54 C93,82 72,89 54,89 C36,89 15,82 13,54 Z"/>
+
 </vector>

@@ -9,5 +9,12 @@ data class AppSettings(
     val notifyWeakSecurity: Boolean = false,
     val portScanQuickMode: Boolean = true,
     val autoStartMonitor: Boolean = false,
-    val onboardingDone: Boolean = false
+    val onboardingDone: Boolean = false,
+    // API Keys
+    val shodanApiKey: String = "",
+    val abuseIpDbKey: String = "",
+    // Network automation
+    val autoScanOnConnect: Boolean = false,
+    // Trusted networks (by SSID)
+    val trustedSsids: Set<String> = emptySet()
 )

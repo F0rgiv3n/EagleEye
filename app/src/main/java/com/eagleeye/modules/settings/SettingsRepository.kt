@@ -22,6 +22,10 @@ class SettingsRepository(private val context: Context) {
         val PORT_SCAN_QUICK = booleanPreferencesKey("port_scan_quick")
         val AUTO_START_MONITOR = booleanPreferencesKey("auto_start_monitor")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        val SHODAN_API_KEY = stringPreferencesKey("shodan_api_key")
+        val ABUSE_IPDB_KEY = stringPreferencesKey("abuse_ipdb_key")
+        val AUTO_SCAN_ON_CONNECT = booleanPreferencesKey("auto_scan_on_connect")
+        val TRUSTED_SSIDS = stringSetPreferencesKey("trusted_ssids")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -34,7 +38,11 @@ class SettingsRepository(private val context: Context) {
             notifyWeakSecurity = prefs[Keys.NOTIFY_WEAK_SEC] ?: false,
             portScanQuickMode = prefs[Keys.PORT_SCAN_QUICK] ?: true,
             autoStartMonitor = prefs[Keys.AUTO_START_MONITOR] ?: false,
-            onboardingDone = prefs[Keys.ONBOARDING_DONE] ?: false
+            onboardingDone = prefs[Keys.ONBOARDING_DONE] ?: false,
+            shodanApiKey = prefs[Keys.SHODAN_API_KEY] ?: "",
+            abuseIpDbKey = prefs[Keys.ABUSE_IPDB_KEY] ?: "",
+            autoScanOnConnect = prefs[Keys.AUTO_SCAN_ON_CONNECT] ?: false,
+            trustedSsids = prefs[Keys.TRUSTED_SSIDS] ?: emptySet()
         )
     }
 
@@ -51,6 +59,10 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.PORT_SCAN_QUICK] = updated.portScanQuickMode
             prefs[Keys.AUTO_START_MONITOR] = updated.autoStartMonitor
             prefs[Keys.ONBOARDING_DONE] = updated.onboardingDone
+            prefs[Keys.SHODAN_API_KEY] = updated.shodanApiKey
+            prefs[Keys.ABUSE_IPDB_KEY] = updated.abuseIpDbKey
+            prefs[Keys.AUTO_SCAN_ON_CONNECT] = updated.autoScanOnConnect
+            prefs[Keys.TRUSTED_SSIDS] = updated.trustedSsids
         }
     }
 }
