@@ -2,6 +2,8 @@ package com.eagleeye.modules.lan
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -12,23 +14,26 @@ object OuiLookup {
 
     private val cache = HashMap<String, String>(8192)
     private var loaded = false
+    private val mutex = Mutex()
 
     suspend fun load(context: Context) = withContext(Dispatchers.IO) {
-        if (loaded) return@withContext
-        context.assets.open("oui.txt").bufferedReader().useLines { lines ->
-            for (line in lines) {
-                if (line.startsWith("#") || line.isBlank()) continue
-                val parts = line.split("\t")
-                if (parts.size >= 2) {
-                    val prefix = parts[0].trim().uppercase()
-                    // Use short name if available, otherwise first column
-                    val vendor = if (parts.size >= 3 && parts[2].isNotBlank())
-                        parts[2].trim() else parts[1].trim()
-                    cache[prefix] = vendor
+        mutex.withLock {
+            if (loaded) return@withLock
+            context.assets.open("oui.txt").bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    if (line.startsWith("#") || line.isBlank()) continue
+                    val parts = line.split("\t")
+                    if (parts.size >= 2) {
+                        val prefix = parts[0].trim().uppercase()
+                        // Use short name if available, otherwise first column
+                        val vendor = if (parts.size >= 3 && parts[2].isNotBlank())
+                            parts[2].trim() else parts[1].trim()
+                        cache[prefix] = vendor
+                    }
                 }
             }
+            loaded = true
         }
-        loaded = true
     }
 
     fun lookup(mac: String): String {

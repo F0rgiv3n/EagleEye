@@ -16,13 +16,24 @@ import java.util.*
 
 class ReportExporter(private val context: Context) {
 
+    companion object {
+        private val sdfTs = ThreadLocal.withInitial { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US) }
+        private val sdfIso = ThreadLocal.withInitial {
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).also {
+                it.timeZone = TimeZone.getTimeZone("UTC")
+            }
+        }
+        private val sdfFull = ThreadLocal.withInitial { SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) }
+        private val sdfShort = ThreadLocal.withInitial { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
+    }
+
     suspend fun exportJson(
         wifi: WifiConnectionInfo,
         score: SecurityScore?,
         devices: List<LanDevice>,
         events: List<NetworkEvent> = emptyList()
     ): Intent = withContext(Dispatchers.IO) {
-        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val ts = sdfTs.get()!!.format(Date())
         val file = File(context.cacheDir, "eagleeye_report_$ts.json")
         file.writeText(buildJson(wifi, score, devices, events))
         buildShareIntent(file, "application/json")
@@ -34,7 +45,7 @@ class ReportExporter(private val context: Context) {
         devices: List<LanDevice>,
         events: List<NetworkEvent> = emptyList()
     ): Intent = withContext(Dispatchers.IO) {
-        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val ts = sdfTs.get()!!.format(Date())
         val file = File(context.cacheDir, "eagleeye_report_$ts.txt")
         file.writeText(buildText(wifi, score, devices, events))
         buildShareIntent(file, "text/plain")
@@ -62,9 +73,7 @@ class ReportExporter(private val context: Context) {
         devices: List<LanDevice>,
         events: List<NetworkEvent> = emptyList()
     ): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        val now = sdf.format(Date())
+        val now = sdfIso.get()!!.format(Date())
         val device = android.os.Build.MODEL
 
         val sb = StringBuilder()
@@ -121,12 +130,9 @@ class ReportExporter(private val context: Context) {
 
         // Network history
         sb.appendLine("  \"network_events\": [")
-        val evSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).also {
-            it.timeZone = TimeZone.getTimeZone("UTC")
-        }
         events.take(100).forEachIndexed { i, ev ->
             val comma = if (i < events.take(100).size - 1) "," else ""
-            sb.appendLine("    { \"time\": \"${evSdf.format(Date(ev.timestamp))}\", \"type\": \"${ev.type}\", \"severity\": \"${ev.severity}\", \"title\": \"${ev.title.replace("\"", "'")}\" }$comma")
+            sb.appendLine("    { \"time\": \"${sdfIso.get()!!.format(Date(ev.timestamp))}\", \"type\": \"${ev.type}\", \"severity\": \"${ev.severity}\", \"title\": \"${ev.title.replace("\"", "'")}\" }$comma")
         }
         sb.appendLine("  ]")
         sb.append("}")
@@ -142,13 +148,12 @@ class ReportExporter(private val context: Context) {
         devices: List<LanDevice>,
         events: List<NetworkEvent> = emptyList()
     ): String {
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
         val sb = StringBuilder()
 
         sb.appendLine("═══════════════════════════════════════")
         sb.appendLine("         EAGLEEYE SECURITY REPORT      ")
         sb.appendLine("═══════════════════════════════════════")
-        sb.appendLine("Generated : ${sdf.format(Date())}")
+        sb.appendLine("Generated : ${sdfFull.get()!!.format(Date())}")
         sb.appendLine("Device    : ${android.os.Build.MODEL}")
         sb.appendLine()
 
@@ -198,10 +203,9 @@ class ReportExporter(private val context: Context) {
         }
         sb.appendLine()
         if (events.isNotEmpty()) {
-            val evSdf = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
             sb.appendLine("── NETWORK HISTORY (last ${events.take(30).size}) ───────────")
             events.take(30).forEach { ev ->
-                sb.appendLine("  [${ev.severity.name.padEnd(8)}] ${evSdf.format(Date(ev.timestamp))}  ${ev.title}")
+                sb.appendLine("  [${ev.severity.name.padEnd(8)}] ${sdfShort.get()!!.format(Date(ev.timestamp))}  ${ev.title}")
             }
             sb.appendLine()
         }

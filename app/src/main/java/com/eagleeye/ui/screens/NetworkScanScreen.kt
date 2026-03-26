@@ -159,11 +159,20 @@ private fun NetworkItem(network: ScannedNetwork, isCurrentNetwork: Boolean) {
             )
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val ctxSsid = LocalContext.current
                     Text(
                         text = network.ssid,
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextPrimary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                val cm = ctxSsid.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cm.setPrimaryClip(ClipData.newPlainText("SSID", network.ssid))
+                                if (Build.VERSION.SDK_INT < 33) Toast.makeText(ctxSsid, "Copied SSID", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     )
                     if (isCurrentNetwork) {
                         Text(
@@ -193,10 +202,19 @@ private fun NetworkItem(network: ScannedNetwork, isCurrentNetwork: Boolean) {
         // Right: signal + security
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SecurityBadge(label = network.securityGrade.label, color = gradeColor)
+            val ctxSignal = LocalContext.current
             Text(
                 text = "${network.rssi} dBm",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
+                color = TextSecondary,
+                modifier = Modifier.combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        val cm = ctxSignal.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("Signal", "${network.ssid}  ${network.rssi} dBm  Ch${network.channel}"))
+                        if (Build.VERSION.SDK_INT < 33) Toast.makeText(ctxSignal, "Copied signal info", Toast.LENGTH_SHORT).show()
+                    }
+                )
             )
             LinearProgressIndicator(
                 progress = { signalPercent / 100f },

@@ -44,7 +44,7 @@ class LanViewModel(application: Application) : AndroidViewModel(application) {
             val caps = connectivityManager.getNetworkCapabilities(network) ?: return
             if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
                 viewModelScope.launch {
-                    val autoScan = settingsRepo.settings.first().autoScanOnConnect
+                    val autoScan = settingsRepo.settings.firstOrNull()?.autoScanOnConnect ?: false
                     if (autoScan && _scanState.value !is ScanState.Scanning) {
                         startScan()
                     }

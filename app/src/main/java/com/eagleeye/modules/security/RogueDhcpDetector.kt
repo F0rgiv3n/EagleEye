@@ -17,6 +17,7 @@ class RogueDhcpDetector(private val context: Context) {
     suspend fun detect(): RogueDhcpResult = withContext(Dispatchers.IO) {
         val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         val dhcp = wm.dhcpInfo
+            ?: return@withContext RogueDhcpResult(knownGateway = "", dhcpServer = "", error = "DHCP info unavailable")
 
         val knownGateway = intToIp(dhcp.gateway)
         val knownServer  = intToIp(dhcp.serverAddress)

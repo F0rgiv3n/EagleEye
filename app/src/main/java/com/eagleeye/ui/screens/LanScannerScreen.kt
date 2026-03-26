@@ -911,6 +911,6 @@ private fun latencyColor(ms: Long) = when {
     else -> CyberOrange
 }
 
-private val sdfFormatTime = java.text.SimpleDateFormat("dd/MM/yy HH:mm", java.util.Locale.getDefault())
+private val sdfFormatTime = ThreadLocal.withInitial { java.text.SimpleDateFormat("dd/MM/yy HH:mm", java.util.Locale.getDefault()) }
 
-private fun formatTime(timestamp: Long): String = sdfFormatTime.format(java.util.Date(timestamp))
+private fun formatTime(timestamp: Long): String = sdfFormatTime.get()!!.format(java.util.Date(timestamp))
