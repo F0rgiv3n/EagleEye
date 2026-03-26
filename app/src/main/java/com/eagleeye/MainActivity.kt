@@ -23,6 +23,7 @@ import com.eagleeye.modules.mac.MacViewModel
 import com.eagleeye.modules.monitor.MonitorViewModel
 import com.eagleeye.modules.iot.IoTViewModel
 import com.eagleeye.modules.settings.SettingsViewModel
+import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -86,6 +87,7 @@ fun EagleEyeApp() {
     val monitorViewModel: MonitorViewModel = viewModel()
     val iotViewModel: IoTViewModel = viewModel()
     val settingsViewModel: SettingsViewModel = viewModel()
+    val packetViewModel: PacketViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
     val unreadCount by monitorViewModel.unreadCount.collectAsState()
     val settings by settingsViewModel.settings.collectAsState()
@@ -141,7 +143,7 @@ fun EagleEyeApp() {
                     Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
                     Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel)
                     Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
-                    Screen.Tools -> ToolsScreen(toolsViewModel)
+                    Screen.Tools -> ToolsScreen(toolsViewModel, packetViewModel)
                     Screen.Mac -> MacScreen(macViewModel)
                     Screen.Monitor -> MonitorScreen(monitorViewModel)
                     Screen.Settings -> SettingsScreen(settingsViewModel)

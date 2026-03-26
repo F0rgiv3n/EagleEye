@@ -232,6 +232,23 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 10 — Packet Analyzer (VPNService, no root) ✅
+| Feature | Status |
+|---|---|
+| Local VPN tunnel via Android VPNService (zero root, zero server) | ✅ Done |
+| IPv4 header parser (protocol, src/dst IP, TCP/UDP ports) | ✅ Done |
+| DNS query parser (port 53 UDP label decoding) | ✅ Done |
+| Live packet stream — last 200 packets with protocol badge | ✅ Done |
+| Protocol stats: TCP / UDP / ICMP breakdown | ✅ Done |
+| Total packets + total bytes counter | ✅ Done |
+| Top destinations (public IPs, by packet count) | ✅ Done |
+| Unique DNS queries list | ✅ Done |
+| "Packets" tab in Network Tools screen | ✅ Done |
+| Clear warning: internet paused during capture | ✅ Done |
+| VPN permission flow (system dialog via VpnService.prepare) | ✅ Done |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

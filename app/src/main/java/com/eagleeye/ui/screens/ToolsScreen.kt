@@ -24,12 +24,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.eagleeye.data.*
 import com.eagleeye.modules.tools.ToolsViewModel
+import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS }
 
 @Composable
-fun ToolsScreen(viewModel: ToolsViewModel) {
+fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = null) {
     var selectedTool by remember { mutableStateOf(Tool.PING) }
 
     Column(
@@ -59,6 +60,7 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
             Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
             Tool.CVE         -> CveTool(viewModel)
             Tool.PORTAL      -> CaptivePortalTool(viewModel)
+            Tool.PACKETS     -> packetViewModel?.let { PacketAnalyzerTool(it) }
         }
     }
 }
@@ -75,7 +77,8 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.SSL to (Icons.Default.Lock to "SSL"),
         Tool.VPN_LEAK to (Icons.Default.VpnKey to "VPN"),
         Tool.CVE to (Icons.Default.BugReport to "CVE"),
-        Tool.PORTAL to (Icons.Default.Sensors to "Portal")
+        Tool.PORTAL to (Icons.Default.Sensors to "Portal"),
+        Tool.PACKETS to (Icons.Default.NetworkCheck to "Packets")
     )
     Row(
         modifier = Modifier
