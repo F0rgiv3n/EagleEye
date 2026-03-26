@@ -3,6 +3,7 @@ package com.eagleeye.ui.screens
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -19,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -30,6 +33,7 @@ import com.eagleeye.data.IpProtocol
 import com.eagleeye.data.PacketStats
 import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun PacketAnalyzerTool(packetViewModel: PacketViewModel) {
@@ -167,6 +171,11 @@ fun PacketAnalyzerTool(packetViewModel: PacketViewModel) {
 
         // Protocol breakdown
         ProtocolBreakdownRow(stats)
+
+        // Packet rate timeline
+        if (recentPackets.isNotEmpty() || isCapturing) {
+            PacketRateChart(recentPackets)
+        }
 
         // Recent packets
         if (recentPackets.isNotEmpty()) {
@@ -371,6 +380,154 @@ private fun TopDestinationsCard(stats: PacketStats) {
                     fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PacketRateChart(packets: List<CapturedPacket>) {
+    val bucketMs = 2000L
+    val numBuckets = 15
+    val windowMs = bucketMs * numBuckets  // 30s
+
+    // Tick every second to keep chart live
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000L)
+            nowMs = System.currentTimeMillis()
+        }
+    }
+
+    // Derive buckets from recentPackets — no ViewModel change needed
+    val buckets = remember(packets, nowMs) {
+        val cutoff = nowMs - windowMs
+        val inWindow = packets.filter { it.timestamp >= cutoff }
+        Array(numBuckets) { i ->
+            val start = nowMs - (numBuckets - i) * bucketMs
+            val end   = start + bucketMs
+            inWindow.filter { it.timestamp in start until end }
+        }
+    }
+    val maxCount = buckets.maxOf { it.size }.coerceAtLeast(1)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(SurfaceDark)
+            .border(1.dp, CardBorderDark, RoundedCornerShape(10.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(Icons.Default.Timeline, null, tint = CyberGreen, modifier = Modifier.size(14.dp))
+            Text(
+                "PACKET TIMELINE  (2s buckets · 30s window)",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextDim,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                "max $maxCount/2s",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextDim
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp)
+        ) {
+            val barW = size.width / numBuckets
+            val chartH = size.height - 16.dp.toPx()
+
+            buckets.forEachIndexed { i, bucket ->
+                val barH = (bucket.size.toFloat() / maxCount) * chartH
+                val x = i * barW
+                val y = chartH - barH
+
+                val tcp  = bucket.count { it.protocol == IpProtocol.TCP }
+                val udp  = bucket.count { it.protocol == IpProtocol.UDP }
+                val icmp = bucket.count { it.protocol == IpProtocol.ICMP }
+                val barColor = when {
+                    bucket.isEmpty()                    -> Color.Transparent
+                    tcp  >= udp  && tcp  >= icmp        -> CyberBlue
+                    udp  >= icmp                        -> CyberGreen
+                    else                                -> CyberYellow
+                }
+                val isCurrent = (i == numBuckets - 1)
+
+                // Active bucket highlight
+                if (isCurrent) {
+                    drawRect(
+                        color = CyberGreen.copy(alpha = 0.06f),
+                        topLeft = Offset(x, 0f),
+                        size = Size(barW, chartH)
+                    )
+                }
+
+                if (barH > 0f) {
+                    drawRect(
+                        color = barColor.copy(alpha = if (isCurrent) 0.9f else 0.55f),
+                        topLeft = Offset(x + 1.5f, y),
+                        size = Size(barW - 3f, barH)
+                    )
+                    // Lighter top edge
+                    drawRect(
+                        color = barColor.copy(alpha = 0.4f),
+                        topLeft = Offset(x + 1.5f, y),
+                        size = Size(barW - 3f, 2.dp.toPx())
+                    )
+                }
+            }
+
+            // Baseline
+            drawLine(
+                color = CardBorderDark,
+                start = Offset(0f, chartH),
+                end   = Offset(size.width, chartH),
+                strokeWidth = 1f
+            )
+        }
+
+        // Time axis labels
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                "-30s",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextDim,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                "-20s",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextDim,
+                modifier = Modifier
+                    .weight(1f)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+            )
+            Text(
+                "-10s",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextDim,
+                modifier = Modifier
+                    .weight(1f)
+                    .wrapContentWidth(Alignment.CenterHorizontally)
+            )
+            Text(
+                "now",
+                style = MaterialTheme.typography.labelSmall,
+                color = CyberGreen,
+                modifier = Modifier
+                    .weight(1f)
+                    .wrapContentWidth(Alignment.End)
+            )
         }
     }
 }

@@ -946,6 +946,7 @@ private fun CveTool(viewModel: ToolsViewModel) {
     val result by viewModel.cveResult.collectAsState()
     val running by viewModel.cveRunning.collectAsState()
     val kb = LocalSoftwareKeyboardController.current
+    var severityFilter by remember { mutableStateOf<CveSeverity?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -955,7 +956,7 @@ private fun CveTool(viewModel: ToolsViewModel) {
         ToolInputRow(
             value = query, onValueChange = { query = it },
             label = "Vendor / Product", placeholder = "TP-Link, Netgear, OpenSSH...",
-            onRun = { kb?.hide(); viewModel.searchCves(query) },
+            onRun = { kb?.hide(); severityFilter = null; viewModel.searchCves(query) },
             running = running
         )
 
@@ -970,13 +971,75 @@ private fun CveTool(viewModel: ToolsViewModel) {
                     }
                 }
             } else {
-                Text(
-                    "${r.totalFound} CVEs found for \"${r.query}\" — showing ${r.entries.size}",
-                    style = MaterialTheme.typography.labelMedium, color = TextDim
-                )
-                r.entries.forEach { cve -> CveCard(cve) }
+                // Summary row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "${r.totalFound} CVEs for \"${r.query}\"",
+                        style = MaterialTheme.typography.labelMedium, color = TextDim
+                    )
+                    Text(
+                        "showing ${r.entries.size}",
+                        style = MaterialTheme.typography.labelMedium, color = TextDim
+                    )
+                }
+
+                // Severity filter chips
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CveSeverityChip("ALL", null, severityFilter, TextDim) { severityFilter = null }
+                    CveSeverityChip("CRITICAL", CveSeverity.CRITICAL, severityFilter, CyberRed) { severityFilter = CveSeverity.CRITICAL }
+                    CveSeverityChip("HIGH", CveSeverity.HIGH, severityFilter, CyberOrange) { severityFilter = CveSeverity.HIGH }
+                    CveSeverityChip("MEDIUM", CveSeverity.MEDIUM, severityFilter, CyberYellow) { severityFilter = CveSeverity.MEDIUM }
+                    CveSeverityChip("LOW", CveSeverity.LOW, severityFilter, CyberBlue) { severityFilter = CveSeverity.LOW }
+                }
+
+                val filtered = if (severityFilter == null) r.entries
+                               else r.entries.filter { it.severity == severityFilter }
+
+                if (filtered.isEmpty()) {
+                    ResultCard {
+                        Text(
+                            "No ${severityFilter?.name} CVEs in current results.",
+                            style = MaterialTheme.typography.bodySmall, color = TextDim
+                        )
+                    }
+                } else {
+                    filtered.forEach { cve -> CveCard(cve) }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun CveSeverityChip(
+    label: String,
+    severity: CveSeverity?,
+    selected: CveSeverity?,
+    color: Color,
+    onClick: () -> Unit
+) {
+    val isSelected = severity == selected
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isSelected) color.copy(alpha = 0.18f) else SurfaceDark)
+            .border(1.dp, if (isSelected) color.copy(alpha = 0.7f) else CardBorderDark, RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isSelected) color else TextDim,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
