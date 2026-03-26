@@ -2,6 +2,7 @@ package com.eagleeye.modules.wifi
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import com.eagleeye.data.ScannedNetwork
 import com.eagleeye.data.WifiConnectionInfo
@@ -28,27 +29,38 @@ class WifiRepository(private val context: Context) {
 
     @Suppress("DEPRECATION")
     fun getConnectionInfo(): WifiConnectionInfo {
+        // Android 10+ restricts WifiManager.connectionInfo — use ConnectivityManager
+        // to reliably detect whether Wi-Fi is active before reading WifiInfo details.
+        val activeNetwork = connectivityManager.activeNetwork
+        val caps = connectivityManager.getNetworkCapabilities(activeNetwork)
+        val isWifiActive = caps != null &&
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+
+        // Fallback: also accept if wifiInfo reports a valid IP even without caps
         val wifiInfo = wifiManager.connectionInfo
         val dhcpInfo = wifiManager.dhcpInfo
+        val hasIp = (wifiInfo?.ipAddress ?: 0) != 0
 
-        if (wifiInfo == null || wifiInfo.networkId == -1) {
+        if (!isWifiActive && !hasIp) {
             return WifiConnectionInfo(isConnected = false)
         }
 
-        val rawSsid = wifiInfo.ssid ?: ""
+        val rawSsid = wifiInfo?.ssid ?: ""
         val ssid = rawSsid.removePrefix("\"").removeSuffix("\"")
+            .let { if (it == "<unknown ssid>") "" else it }
 
         return WifiConnectionInfo(
             ssid = ssid,
-            bssid = wifiInfo.bssid ?: "",
-            ipAddress = intToIp(wifiInfo.ipAddress),
-            gateway = intToIp(dhcpInfo.gateway),
-            subnetMask = intToIp(dhcpInfo.netmask),
-            dns1 = intToIp(dhcpInfo.dns1),
-            dns2 = intToIp(dhcpInfo.dns2),
-            linkSpeedMbps = wifiInfo.linkSpeed,
-            rssi = wifiInfo.rssi,
-            frequencyMhz = wifiInfo.frequency,
+            bssid = wifiInfo?.bssid ?: "",
+            ipAddress = intToIp(wifiInfo?.ipAddress ?: 0),
+            gateway = intToIp(dhcpInfo?.gateway ?: 0),
+            subnetMask = intToIp(dhcpInfo?.netmask ?: 0),
+            dns1 = intToIp(dhcpInfo?.dns1 ?: 0),
+            dns2 = intToIp(dhcpInfo?.dns2 ?: 0),
+            linkSpeedMbps = wifiInfo?.linkSpeed ?: -1,
+            rssi = wifiInfo?.rssi ?: -100,
+            frequencyMhz = wifiInfo?.frequency ?: 0,
             securityType = getSecurityType(),
             isConnected = true
         )

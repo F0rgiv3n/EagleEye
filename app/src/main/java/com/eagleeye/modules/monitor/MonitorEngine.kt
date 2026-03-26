@@ -1,6 +1,8 @@
 package com.eagleeye.modules.monitor
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import com.eagleeye.data.*
 import com.eagleeye.data.db.AppDatabase
@@ -20,6 +22,8 @@ class MonitorEngine(private val context: Context) {
     private val db = AppDatabase.getInstance(context)
     private val wifiManager = context.applicationContext
         .getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val connectivityManager = context.applicationContext
+        .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     // In-memory baselines (reset when service restarts)
     private val arpBaseline   = mutableMapOf<String, String>()   // ip → mac
@@ -159,10 +163,9 @@ class MonitorEngine(private val context: Context) {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    @Suppress("DEPRECATION")
     private fun isConnected(): Boolean {
-        val info = wifiManager.connectionInfo ?: return false
-        return info.networkId != -1
+        val caps = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+        return caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
 
     @Suppress("DEPRECATION")

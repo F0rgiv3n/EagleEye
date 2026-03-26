@@ -142,10 +142,21 @@ class LanRepository(private val context: Context) {
     suspend fun markDeviceKnown(mac: String, known: Boolean) = dao.setKnown(mac, known)
     suspend fun setDeviceAlias(mac: String, alias: String) = dao.setAlias(mac, alias)
 
-    @Suppress("DEPRECATION")
     private fun getLocalIp(): String? {
-        val info = wifiManager.connectionInfo ?: return null
-        val ip = info.ipAddress
+        // Primary: NetworkInterface — works on all API levels without deprecated APIs
+        try {
+            NetworkInterface.getNetworkInterfaces()?.asSequence()?.forEach { iface ->
+                if (!iface.isUp || iface.isLoopback) return@forEach
+                iface.inetAddresses.asSequence()
+                    .filterIsInstance<Inet4Address>()
+                    .filter { !it.isLoopbackAddress }
+                    .firstOrNull()?.let { return it.hostAddress }
+            }
+        } catch (_: Exception) {}
+
+        // Fallback: WifiManager (deprecated API 31 but still functional on most devices)
+        @Suppress("DEPRECATION")
+        val ip = wifiManager.connectionInfo?.ipAddress ?: 0
         if (ip == 0) return null
         return "${ip and 0xFF}.${(ip shr 8) and 0xFF}.${(ip shr 16) and 0xFF}.${(ip shr 24) and 0xFF}"
     }
