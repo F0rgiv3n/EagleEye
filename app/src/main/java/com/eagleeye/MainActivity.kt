@@ -19,6 +19,7 @@ import com.eagleeye.modules.wifi.WifiViewModel
 import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.modules.security.SecurityViewModel
 import com.eagleeye.modules.tools.ToolsViewModel
+import com.eagleeye.modules.mac.MacViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -54,6 +55,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object LanScanner : Screen("lan", "LAN", Icons.Default.DeviceHub)
     object Security : Screen("security", "Security", Icons.Default.Shield)
     object Tools : Screen("tools", "Tools", Icons.Default.Build)
+    object Mac : Screen("mac", "MAC", Icons.Default.PrivacyTip)
 }
 
 val bottomNavItems = listOf(
@@ -61,7 +63,8 @@ val bottomNavItems = listOf(
     Screen.NetworkScan,
     Screen.LanScanner,
     Screen.Security,
-    Screen.Tools
+    Screen.Tools,
+    Screen.Mac
 )
 
 @Composable
@@ -70,6 +73,7 @@ fun EagleEyeApp() {
     val lanViewModel: LanViewModel = viewModel()
     val securityViewModel: SecurityViewModel = viewModel()
     val toolsViewModel: ToolsViewModel = viewModel()
+    val macViewModel: MacViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
     Scaffold(
@@ -112,6 +116,7 @@ fun EagleEyeApp() {
                 Screen.LanScanner -> LanScannerScreen(lanViewModel)
                 Screen.Security -> SecurityScreen(securityViewModel)
                 Screen.Tools -> ToolsScreen(toolsViewModel)
+                Screen.Mac -> MacScreen(macViewModel)
             }
         }
     }

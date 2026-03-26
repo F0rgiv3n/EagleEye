@@ -5,11 +5,13 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.eagleeye.data.LanDevice
+import com.eagleeye.data.MacProfile
 
-@Database(entities = [LanDevice::class], version = 1, exportSchema = false)
+@Database(entities = [LanDevice::class, MacProfile::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun lanDeviceDao(): LanDeviceDao
+    abstract fun macProfileDao(): MacProfileDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -20,7 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "eagleeye.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
     }
 }

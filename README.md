@@ -137,14 +137,20 @@ app/src/main/java/com/eagleeye/
 
 ---
 
-### Part 5 — MAC Privacy 📋 Planned
+### Part 5 — MAC Privacy ✅
 | Feature | Status |
 |---|---|
-| Display device MAC address | 📋 |
-| Detect if MAC is randomized | 📋 |
-| Custom MAC address change (root) | 📋 |
-| Auto MAC rotation scheduler | 📋 |
-| Per-network MAC profiles | 📋 |
+| Display current MAC with type badge (REAL / RANDOMIZED / CUSTOM) | ✅ Done |
+| Vendor lookup from current MAC | ✅ Done |
+| Locally-administered bit detection (real vs randomized) | ✅ Done |
+| Warning when real hardware MAC is exposed | ✅ Done |
+| Custom MAC change via root (ip link set) | ✅ Done |
+| Generate random locally-administered MAC | ✅ Done |
+| One-tap MAC randomize (root) | ✅ Done |
+| Per-network MAC profiles (SSID → MAC mapping, persisted in Room) | ✅ Done |
+| Auto-rotate flag + interval (hours) per profile | ✅ Done |
+| Apply profile for current network | ✅ Done |
+| Hardware MAC display (root read) | ✅ Done |
 
 ---
 
