@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.eagleeye.data.*
 import com.eagleeye.modules.cve.CveRepository
 import com.eagleeye.modules.export.ReportExporter
+import com.eagleeye.modules.portal.CaptivePortalDetector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -18,6 +19,7 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     private val vpnDetector = VpnLeakDetector(application)
     private val cveRepo = CveRepository()
     private val exporter = ReportExporter(application)
+    private val portalDetector = CaptivePortalDetector()
 
     // ── Ping ──
     private val _pingResult = MutableStateFlow<PingResult?>(null)
@@ -178,4 +180,19 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     fun clearExportIntent() { _exportIntent.value = null }
 
     fun getServiceName(port: Int) = tools.getServiceName(port)
+
+    // ── Captive Portal ──
+    private val _portalResult = MutableStateFlow<CaptivePortalResult?>(null)
+    val portalResult: StateFlow<CaptivePortalResult?> = _portalResult.asStateFlow()
+    private val _portalRunning = MutableStateFlow(false)
+    val portalRunning: StateFlow<Boolean> = _portalRunning.asStateFlow()
+
+    fun runPortalCheck() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _portalRunning.value = true
+            _portalResult.value = null
+            _portalResult.value = portalDetector.detect()
+            _portalRunning.value = false
+        }
+    }
 }

@@ -26,7 +26,7 @@ import com.eagleeye.data.*
 import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL }
 
 @Composable
 fun ToolsScreen(viewModel: ToolsViewModel) {
@@ -58,6 +58,7 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
             Tool.SSL         -> SslTool(viewModel)
             Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
             Tool.CVE         -> CveTool(viewModel)
+            Tool.PORTAL      -> CaptivePortalTool(viewModel)
         }
     }
 }
@@ -73,7 +74,8 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.WAKE_ON_LAN to (Icons.Default.Power to "WoL"),
         Tool.SSL to (Icons.Default.Lock to "SSL"),
         Tool.VPN_LEAK to (Icons.Default.VpnKey to "VPN"),
-        Tool.CVE to (Icons.Default.BugReport to "CVE")
+        Tool.CVE to (Icons.Default.BugReport to "CVE"),
+        Tool.PORTAL to (Icons.Default.Sensors to "Portal")
     )
     Row(
         modifier = Modifier
@@ -991,6 +993,166 @@ private fun CveCard(cve: com.eagleeye.data.CveEntry) {
                     Text("References", style = MaterialTheme.typography.labelMedium, color = TextDim)
                     cve.references.forEach {
                         Text(it, style = MaterialTheme.typography.bodySmall, color = CyberBlue.copy(alpha = 0.8f), maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── CAPTIVE PORTAL ANALYZER ───────────────────────────────────────────────────
+
+@Composable
+private fun CaptivePortalTool(viewModel: ToolsViewModel) {
+    val result by viewModel.portalResult.collectAsState()
+    val running by viewModel.portalRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Checks whether this network intercepts traffic via a captive portal " +
+                "and analyses it for suspicious behaviour.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("CAPTIVE PORTAL CHECK", style = MaterialTheme.typography.labelMedium, color = TextDim)
+            Button(
+                onClick = { viewModel.runPortalCheck() },
+                enabled = !running,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberGreen.copy(alpha = 0.15f), contentColor = CyberGreen,
+                    disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+                ),
+                border = BorderStroke(1.dp, if (!running) CyberGreen.copy(0.5f) else TextDim.copy(0.3f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (running) {
+                    CircularProgressIndicator(Modifier.size(14.dp), CyberGreen, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("CHECKING")
+                } else {
+                    Icon(Icons.Default.Sensors, null, Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("CHECK")
+                }
+            }
+        }
+
+        if (running) LoadingCard("Probing connectivity endpoints...")
+
+        result?.let { r ->
+            val (statusLabel, statusColor) = when (r.status) {
+                com.eagleeye.data.PortalStatus.NONE       -> "NO PORTAL" to CyberGreen
+                com.eagleeye.data.PortalStatus.DETECTED   -> "PORTAL DETECTED" to CyberYellow
+                com.eagleeye.data.PortalStatus.SUSPICIOUS -> "SUSPICIOUS PORTAL" to CyberRed
+                com.eagleeye.data.PortalStatus.ERROR      -> "ERROR" to TextDim
+            }
+
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Network Portal Status", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                        Text(
+                            r.checkedUrl,
+                            style = MaterialTheme.typography.bodySmall, color = TextDim, maxLines = 1
+                        )
+                    }
+                    Text(
+                        statusLabel,
+                        style = MaterialTheme.typography.labelMedium, color = statusColor,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(statusColor.copy(alpha = 0.12f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                if (r.status == com.eagleeye.data.PortalStatus.ERROR && r.error != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                    return@ResultCard
+                }
+
+                if (r.status != com.eagleeye.data.PortalStatus.NONE) {
+                    Spacer(Modifier.height(10.dp))
+
+                    if (r.portalUrl.isNotBlank()) {
+                        DetailRow2("Portal URL", r.portalUrl.take(60))
+                    }
+                    if (r.pageTitle.isNotBlank()) {
+                        DetailRow2("Page Title", r.pageTitle)
+                    }
+                    if (r.responseCode > 0) {
+                        DetailRow2("Response Code", "${r.responseCode}")
+                    }
+
+                    if (r.redirectChain.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("REDIRECT CHAIN (${r.redirectChain.size} hops)", style = MaterialTheme.typography.labelMedium, color = CyberYellow)
+                        Spacer(Modifier.height(4.dp))
+                        r.redirectChain.forEachIndexed { i, url ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            ) {
+                                Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = TextDim, modifier = Modifier.width(16.dp))
+                                Text(url.take(55), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            }
+                        }
+                    }
+
+                    if (r.suspicionReasons.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("SUSPICIOUS INDICATORS", style = MaterialTheme.typography.labelMedium, color = CyberRed)
+                        Spacer(Modifier.height(4.dp))
+                        r.suspicionReasons.forEach { reason ->
+                            Row(
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(vertical = 3.dp)
+                            ) {
+                                Icon(Icons.Default.Warning, null, tint = CyberRed, modifier = Modifier.size(13.dp))
+                                Text(reason, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                            }
+                        }
+                    }
+
+                    if (r.hasCertIssue) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CyberRed.copy(alpha = 0.08f))
+                                .border(1.dp, CyberRed.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                .padding(10.dp)
+                        ) {
+                            Icon(Icons.Default.LockOpen, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                            Text(
+                                "SSL certificate issue — possible MITM attack",
+                                style = MaterialTheme.typography.bodySmall, color = CyberRed
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.CheckCircle, null, tint = CyberGreen, modifier = Modifier.size(16.dp))
+                        Text("Network traffic is not being intercepted", style = MaterialTheme.typography.bodySmall, color = CyberGreen)
                     }
                 }
             }

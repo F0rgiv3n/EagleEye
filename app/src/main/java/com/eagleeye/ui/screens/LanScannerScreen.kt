@@ -17,15 +17,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.eagleeye.data.IoTProfile
+import com.eagleeye.data.IoTRisk
 import com.eagleeye.data.LanDevice
+import com.eagleeye.modules.iot.IoTViewModel
 import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.modules.lan.ScanState
 import com.eagleeye.ui.theme.*
 
 @Composable
-fun LanScannerScreen(viewModel: LanViewModel) {
+fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null) {
     val scanState by viewModel.scanState.collectAsState()
     val savedDevices by viewModel.savedDevices.collectAsState()
+    val iotProfiles by (iotViewModel?.profiles ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
+    val iotScanning by (iotViewModel?.scanning ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
 
     val devices = when (val s = scanState) {
         is ScanState.Done -> s.devices
@@ -58,24 +63,43 @@ fun LanScannerScreen(viewModel: LanViewModel) {
                 )
             }
 
-            Button(
-                onClick = { viewModel.startScan() },
-                enabled = scanState !is ScanState.Scanning,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberGreen.copy(alpha = 0.15f),
-                    contentColor = CyberGreen,
-                    disabledContainerColor = SurfaceVariantDark,
-                    disabledContentColor = TextDim
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    if (scanState !is ScanState.Scanning) CyberGreen.copy(0.5f) else TextDim.copy(0.3f)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(if (scanState is ScanState.Scanning) "SCANNING" else "SCAN")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (iotViewModel != null) {
+                    OutlinedButton(
+                        onClick = { iotViewModel.profileDevices(devices) },
+                        enabled = !iotScanning && devices.isNotEmpty(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberBlue),
+                        border = BorderStroke(1.dp, CyberBlue.copy(alpha = if (!iotScanning && devices.isNotEmpty()) 0.5f else 0.2f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        if (iotScanning) {
+                            CircularProgressIndicator(Modifier.size(12.dp), CyberBlue, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Sensors, null, Modifier.size(14.dp))
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        Text("IoT", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Button(
+                    onClick = { viewModel.startScan() },
+                    enabled = scanState !is ScanState.Scanning,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CyberGreen.copy(alpha = 0.15f),
+                        contentColor = CyberGreen,
+                        disabledContainerColor = SurfaceVariantDark,
+                        disabledContentColor = TextDim
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (scanState !is ScanState.Scanning) CyberGreen.copy(0.5f) else TextDim.copy(0.3f)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (scanState is ScanState.Scanning) "SCANNING" else "SCAN")
+                }
             }
         }
 
@@ -125,7 +149,11 @@ fun LanScannerScreen(viewModel: LanViewModel) {
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(devices, key = { it.mac }) { device ->
-                    DeviceCard(device = device, viewModel = viewModel)
+                    DeviceCard(
+                        device = device,
+                        viewModel = viewModel,
+                        iotProfile = iotProfiles[device.ip]
+                    )
                 }
             }
         }
@@ -133,7 +161,7 @@ fun LanScannerScreen(viewModel: LanViewModel) {
 }
 
 @Composable
-private fun DeviceCard(device: LanDevice, viewModel: LanViewModel) {
+private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: IoTProfile? = null) {
     var expanded by remember { mutableStateOf(false) }
 
     val borderColor = when {
@@ -263,6 +291,58 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel) {
                             row.forEach { port ->
                                 PortChip(port = port, label = viewModel.getServiceName(port))
                             }
+                        }
+                    }
+                }
+
+                // IoT Profile section
+                iotProfile?.let { p ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = CardBorderDark, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val riskColor = when (p.riskLevel) {
+                        IoTRisk.HIGH   -> CyberRed
+                        IoTRisk.MEDIUM -> CyberOrange
+                        IoTRisk.LOW    -> CyberYellow
+                        IoTRisk.SAFE   -> CyberGreen
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("IOT PROFILE", style = MaterialTheme.typography.labelMedium, color = CyberBlue)
+                        Text(
+                            p.riskLevel.name,
+                            style = MaterialTheme.typography.labelMedium, color = riskColor,
+                            modifier = Modifier
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                .background(riskColor.copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    DetailRow("Category", p.category.name.replace('_', ' '))
+                    if (p.deviceModel.isNotBlank()) DetailRow("Model", p.deviceModel.take(40))
+                    if (p.firmwareHint.isNotBlank()) DetailRow("Firmware", p.firmwareHint)
+                    if (p.hasAdminPanel) DetailRow("Admin Panel", "Port ${p.adminPort}")
+                    if (p.services.isNotEmpty()) DetailRow("Services", p.services.take(3).joinToString(", "))
+                    if (p.hasDefaultCredentials) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                                .background(CyberRed.copy(alpha = 0.08f))
+                                .padding(8.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, tint = CyberRed, modifier = Modifier.size(12.dp))
+                            Text(
+                                "Default credentials may apply",
+                                style = MaterialTheme.typography.bodySmall, color = CyberRed
+                            )
                         }
                     }
                 }

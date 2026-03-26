@@ -195,6 +195,26 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 8 — Captive Portal Analyzer + IoT Profiler ✅
+| Feature | Status |
+|---|---|
+| Captive portal detection via 4 connectivity-check endpoints | ✅ Done |
+| Redirect chain following (up to 8 hops) | ✅ Done |
+| Portal suspicion analysis (unknown domain, cert issue, suspicious content) | ✅ Done |
+| SSL certificate issue detection (MITM warning) | ✅ Done |
+| Suspicious content patterns (phishing indicators) | ✅ Done |
+| "Portal" tab in Network Tools screen | ✅ Done |
+| SSDP/UPnP scanner (UDP multicast M-SEARCH) | ✅ Done |
+| IoT device fingerprinting (OUI + ports + HTTP banner + SSDP) | ✅ Done |
+| Device category detection (Router/Camera/TV/Printer/NAS/Console/Speaker/Sensor) | ✅ Done |
+| Default credentials database (TP-Link, Netgear, Hikvision, Dahua, Synology, etc.) | ✅ Done |
+| IoT risk scoring (HIGH/MEDIUM/LOW/SAFE) | ✅ Done |
+| IoT Profile button in LAN Scanner | ✅ Done |
+| IoT profile shown in device card (category, model, firmware, admin port, risk) | ✅ Done |
+| Default credentials warning in device card | ✅ Done |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
