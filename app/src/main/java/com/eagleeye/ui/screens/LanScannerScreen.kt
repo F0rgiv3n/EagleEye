@@ -32,9 +32,34 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
     val iotProfiles by (iotViewModel?.profiles ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
     val iotScanning by (iotViewModel?.scanning ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
 
+    var showTopology by remember { mutableStateOf(false) }
+
     val devices = when (val s = scanState) {
         is ScanState.Done -> s.devices
         else -> savedDevices
+    }
+
+    val gatewayIp = remember(devices) {
+        val firstOnline = devices.firstOrNull { it.isOnline }
+        if (firstOnline != null) {
+            val parts = firstOnline.ip.split(".")
+            if (parts.size == 4) "${parts[0]}.${parts[1]}.${parts[2]}.1" else "192.168.1.1"
+        } else "192.168.1.1"
+    }
+
+    if (showTopology) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundDark)
+        ) {
+            TopologyScreen(
+                devices = devices,
+                gatewayIp = gatewayIp,
+                onBack = { showTopology = false }
+            )
+        }
+        return
     }
 
     Column(
@@ -63,7 +88,10 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { showTopology = true }) {
+                    Icon(Icons.Default.Hub, contentDescription = "Topology Map", tint = CyberBlue)
+                }
                 if (iotViewModel != null) {
                     OutlinedButton(
                         onClick = { iotViewModel.profileDevices(devices) },

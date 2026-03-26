@@ -249,6 +249,22 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 11 — Network Topology Map ✅
+| Feature | Status |
+|---|---|
+| Canvas-based topology map (no third-party library) | ✅ Done |
+| Gateway node at center, devices in concentric rings | ✅ Done |
+| Online known → CyberGreen / Online unknown → CyberOrange / Offline → gray | ✅ Done |
+| Lines gateway → device colored by status | ✅ Done |
+| Risk dot (red) for devices with >3 open ports | ✅ Done |
+| Pinch-to-zoom (0.5×–3×) + drag-to-pan | ✅ Done |
+| Tap node → info card (IP, MAC, vendor, hostname, ports, status) | ✅ Done |
+| Selected node glow effect (double outer ring) | ✅ Done |
+| Legend: Online Known / Online New / Offline | ✅ Done |
+| Hub icon button in LAN Scanner header → full-screen topology | ✅ Done |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
