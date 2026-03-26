@@ -24,6 +24,7 @@ import com.eagleeye.modules.monitor.MonitorViewModel
 import com.eagleeye.modules.iot.IoTViewModel
 import com.eagleeye.modules.settings.SettingsViewModel
 import com.eagleeye.modules.packet.PacketViewModel
+import com.eagleeye.modules.bluetooth.BluetoothViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -44,6 +45,10 @@ class MainActivity : ComponentActivity() {
         )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            perms.add(Manifest.permission.BLUETOOTH_SCAN)
+            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
         permissionLauncher.launch(perms.toTypedArray())
 
@@ -88,6 +93,7 @@ fun EagleEyeApp() {
     val iotViewModel: IoTViewModel = viewModel()
     val settingsViewModel: SettingsViewModel = viewModel()
     val packetViewModel: PacketViewModel = viewModel()
+    val btViewModel: BluetoothViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
     val unreadCount by monitorViewModel.unreadCount.collectAsState()
     val settings by settingsViewModel.settings.collectAsState()
@@ -143,7 +149,7 @@ fun EagleEyeApp() {
                     Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
                     Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel)
                     Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
-                    Screen.Tools -> ToolsScreen(toolsViewModel, packetViewModel)
+                    Screen.Tools -> ToolsScreen(toolsViewModel, packetViewModel, btViewModel)
                     Screen.Mac -> MacScreen(macViewModel)
                     Screen.Monitor -> MonitorScreen(monitorViewModel)
                     Screen.Settings -> SettingsScreen(settingsViewModel)

@@ -25,12 +25,13 @@ import androidx.compose.ui.unit.dp
 import com.eagleeye.data.*
 import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.modules.packet.PacketViewModel
+import com.eagleeye.modules.bluetooth.BluetoothViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN }
 
 @Composable
-fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = null) {
+fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = null, btViewModel: BluetoothViewModel? = null) {
     var selectedTool by remember { mutableStateOf(Tool.PING) }
 
     Column(
@@ -64,6 +65,7 @@ fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = n
             Tool.HEADERS     -> HeadersTool(viewModel)
             Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
             Tool.SHODAN      -> ShodanTool(viewModel)
+            Tool.BT_SCAN     -> BtScanTool(btViewModel)
         }
     }
 }
@@ -84,7 +86,8 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.PACKETS to (Icons.Default.NetworkCheck to "Packets"),
         Tool.HEADERS to (Icons.Default.Security to "Headers"),
         Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
-        Tool.SHODAN to (Icons.Default.Radar to "Shodan")
+        Tool.SHODAN to (Icons.Default.Radar to "Shodan"),
+        Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan")
     )
     Row(
         modifier = Modifier
@@ -1676,6 +1679,199 @@ private fun ShodanTool(viewModel: ToolsViewModel) {
                 ) {
                     Icon(Icons.Default.Info, null, tint = TextDim, modifier = Modifier.size(12.dp))
                     Text("Data from Shodan InternetDB — passive data only", style = MaterialTheme.typography.labelSmall, color = TextDim)
+                }
+            }
+        }
+    }
+}
+
+// ── BLUETOOTH SCANNER ─────────────────────────────────────────────────────────
+
+@Composable
+private fun BtScanTool(viewModel: BluetoothViewModel?) {
+    if (viewModel == null) {
+        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+            Text("Bluetooth not available", color = TextDim)
+        }
+        return
+    }
+
+    val devices by viewModel.devices.collectAsState()
+    val scanning by viewModel.scanning.collectAsState()
+    val scanError by viewModel.scanError.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Header + button
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("BLUETOOTH SCANNER", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                Text(
+                    if (scanning) "Scanning... (auto-stops at 15s)" else "${devices.size} devices found",
+                    style = MaterialTheme.typography.bodySmall, color = TextDim
+                )
+            }
+            Button(
+                onClick = { if (scanning) viewModel.stopScan() else viewModel.startScan() },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = (if (scanning) CyberRed else CyberGreen).copy(alpha = 0.15f),
+                    contentColor = if (scanning) CyberRed else CyberGreen,
+                    disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+                ),
+                border = BorderStroke(1.dp, (if (scanning) CyberRed else CyberGreen).copy(0.5f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (scanning) {
+                    CircularProgressIndicator(Modifier.size(14.dp), CyberGreen, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("STOP")
+                } else {
+                    Icon(Icons.Default.Bluetooth, null, Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("SCAN")
+                }
+            }
+        }
+
+        scanError?.let { err ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    .background(CyberRed.copy(alpha = 0.08f))
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Warning, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                Text(err, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+            }
+        }
+
+        // Stats row
+        if (devices.isNotEmpty()) {
+            val bleCount = devices.count { it.isBle }
+            val classicCount = devices.count { !it.isBle }
+            val bondedCount = devices.count { it.bondState == "BONDED" }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatBox("BLE", "$bleCount", CyberBlue, Modifier.weight(1f))
+                StatBox("CLASSIC", "$classicCount", CyberGreen, Modifier.weight(1f))
+                StatBox("BONDED", "$bondedCount", CyberOrange, Modifier.weight(1f))
+            }
+        }
+
+        // Device list
+        if (devices.isEmpty() && !scanning) {
+            ResultCard {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Bluetooth, null, tint = TextDim, modifier = Modifier.size(32.dp))
+                        Text("No devices found", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                        Text("Tap SCAN to discover nearby Bluetooth devices", style = MaterialTheme.typography.bodySmall, color = TextDim)
+                    }
+                }
+            }
+        }
+
+        devices.forEach { device -> BtDeviceCard(device) }
+    }
+}
+
+@Composable
+private fun BtDeviceCard(device: com.eagleeye.data.BtDevice) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val rssiColor = when {
+        device.rssi >= -60 -> CyberGreen
+        device.rssi >= -75 -> CyberYellow
+        device.rssi >= -85 -> CyberOrange
+        else -> CyberRed
+    }
+    val rssiLabel = when {
+        device.rssi >= -60 -> "Strong"
+        device.rssi >= -75 -> "Good"
+        device.rssi >= -85 -> "Weak"
+        else -> "Poor"
+    }
+
+    val (typeIcon, typeColor) = when (device.deviceType) {
+        com.eagleeye.data.BtDeviceType.PHONE      -> Icons.Default.PhoneAndroid to CyberGreen
+        com.eagleeye.data.BtDeviceType.COMPUTER   -> Icons.Default.Computer to CyberBlue
+        com.eagleeye.data.BtDeviceType.HEADPHONES -> Icons.Default.Hearing to CyberBlue
+        com.eagleeye.data.BtDeviceType.SPEAKER    -> Icons.Default.Speaker to CyberBlue
+        com.eagleeye.data.BtDeviceType.KEYBOARD   -> Icons.Default.Keyboard to CyberYellow
+        com.eagleeye.data.BtDeviceType.MOUSE      -> Icons.Default.DragHandle to CyberYellow
+        com.eagleeye.data.BtDeviceType.WEARABLE   -> Icons.Default.Watch to CyberGreen
+        com.eagleeye.data.BtDeviceType.TV         -> Icons.Default.Tv to CyberBlue
+        com.eagleeye.data.BtDeviceType.PRINTER    -> Icons.Default.Print to TextSecondary
+        com.eagleeye.data.BtDeviceType.CAR        -> Icons.Default.DirectionsCar to CyberOrange
+        com.eagleeye.data.BtDeviceType.HEALTH     -> Icons.Default.Favorite to CyberRed
+        else -> Icons.Default.Bluetooth to TextDim
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(SurfaceDark)
+            .border(1.dp, CardBorderDark, RoundedCornerShape(10.dp))
+            .clickable { expanded = !expanded }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.weight(1f)) {
+                Box(
+                    Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(typeColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(typeIcon, null, tint = typeColor, modifier = Modifier.size(18.dp))
+                }
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(device.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium)
+                        if (device.bondState == "BONDED") {
+                            Icon(Icons.Default.Link, null, tint = CyberGreen, modifier = Modifier.size(12.dp))
+                        }
+                        Text(
+                            if (device.isBle) "BLE" else "Classic",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (device.isBle) CyberBlue else CyberGreen,
+                            modifier = Modifier.clip(RoundedCornerShape(3.dp))
+                                .background((if (device.isBle) CyberBlue else CyberGreen).copy(alpha = 0.1f))
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
+                    }
+                    Text(device.address, style = MaterialTheme.typography.bodySmall, color = TextDim)
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("${device.rssi} dBm", style = MaterialTheme.typography.bodySmall, color = rssiColor, fontWeight = FontWeight.Medium)
+                Text(rssiLabel, style = MaterialTheme.typography.labelMedium, color = rssiColor)
+            }
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                Modifier.fillMaxWidth().background(CardDark).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                HorizontalDivider(color = CardBorderDark, thickness = 0.5.dp)
+                Spacer(Modifier.height(2.dp))
+                DetailRow2("Type", device.deviceType.name.replace('_', ' '))
+                if (device.deviceClass.isNotBlank()) DetailRow2("Class", device.deviceClass)
+                DetailRow2("Bond State", device.bondState)
+                DetailRow2("Protocol", if (device.isBle) "Bluetooth Low Energy" else "Bluetooth Classic")
+                if (device.manufacturerName.isNotBlank()) DetailRow2("Manufacturer", device.manufacturerName)
+                if (device.txPower != Int.MIN_VALUE) DetailRow2("TX Power", "${device.txPower} dBm")
+
+                val distance = if (device.txPower != Int.MIN_VALUE) {
+                    val ratio = device.rssi.toDouble() / device.txPower
+                    if (ratio < 1.0) Math.pow(ratio, 10.0)
+                    else (0.89976 * Math.pow(ratio, 7.7095) + 0.111)
+                } else null
+                if (distance != null) {
+                    DetailRow2("Est. Distance", "~${"%.1f".format(distance)}m")
                 }
             }
         }

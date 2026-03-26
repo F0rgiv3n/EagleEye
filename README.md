@@ -284,6 +284,25 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 13 — Bluetooth/BLE Scanner ✅
+| Feature | Status |
+|---|---|
+| Classic Bluetooth discovery (BroadcastReceiver) | ✅ Done |
+| BLE scan (BluetoothLeScanner, SCAN_MODE_LOW_LATENCY) | ✅ Done |
+| Dual scan — Classic + BLE simultaneously, results merged | ✅ Done |
+| Device type fingerprinting (13 types: phone, headphones, speaker, etc.) | ✅ Done |
+| Manufacturer ID resolution (Apple, Samsung, Google, Microsoft, etc.) | ✅ Done |
+| RSSI signal strength with color coding + quality label | ✅ Done |
+| Estimated distance from TX power (BLE) | ✅ Done |
+| Bond state indicator (BONDED / DISCOVERED) | ✅ Done |
+| BLE / Classic badge per device | ✅ Done |
+| Stats: BLE count / Classic count / Bonded count | ✅ Done |
+| Auto-stop after 15 seconds | ✅ Done |
+| BT Scan tab in Network Tools screen | ✅ Done |
+| Android 12+ BLUETOOTH_SCAN + BLUETOOTH_CONNECT permissions | ✅ Done |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
