@@ -265,6 +265,25 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 12 — HTTP Security Headers + Threat Intelligence + Shodan ✅
+| Feature | Status |
+|---|---|
+| HTTP Security Headers analyzer (8 headers checked) | ✅ Done |
+| Headers: HSTS, CSP, X-Frame-Options, X-Content-Type-Options | ✅ Done |
+| Headers: Referrer-Policy, Permissions-Policy, COOP, COEP | ✅ Done |
+| Header grade A+/A/B/C/F with score 0-100 | ✅ Done |
+| Info leak detection (Server version, X-Powered-By, ASP.NET headers) | ✅ Done |
+| Threat Intelligence via ip-api.com (free, no key required) | ✅ Done |
+| Threat Intel: proxy/VPN detection, datacenter/hosting detection | ✅ Done |
+| Threat Intel: country, city, ISP, org, ASN | ✅ Done |
+| AbuseIPDB enrichment (optional — user-provided API key) | ✅ Done |
+| AbuseIPDB: abuse score, report count, attack categories | ✅ Done |
+| Shodan InternetDB lookup (free, no API key required) | ✅ Done |
+| Shodan: open ports, CVEs, hostnames, tags | ✅ Done |
+| 3 new tabs in Network Tools screen: Headers / Threat / Shodan | ✅ Done |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

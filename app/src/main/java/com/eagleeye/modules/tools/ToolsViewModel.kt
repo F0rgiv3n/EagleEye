@@ -20,6 +20,9 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     private val cveRepo = CveRepository()
     private val exporter = ReportExporter(application)
     private val portalDetector = CaptivePortalDetector()
+    private val headersAnalyzer = HttpHeadersAnalyzer()
+    private val threatIntelClient = ThreatIntelClient()
+    private val shodanClient = ShodanClient()
 
     // ── Ping ──
     private val _pingResult = MutableStateFlow<PingResult?>(null)
@@ -193,6 +196,51 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             _portalResult.value = null
             _portalResult.value = portalDetector.detect()
             _portalRunning.value = false
+        }
+    }
+
+    // ── HTTP Headers ──
+    private val _headersResult = MutableStateFlow<com.eagleeye.data.HttpHeadersResult?>(null)
+    val headersResult: StateFlow<com.eagleeye.data.HttpHeadersResult?> = _headersResult.asStateFlow()
+    private val _headersRunning = MutableStateFlow(false)
+    val headersRunning: StateFlow<Boolean> = _headersRunning.asStateFlow()
+
+    fun runHeadersCheck(url: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _headersRunning.value = true
+            _headersResult.value = null
+            _headersResult.value = headersAnalyzer.analyze(url)
+            _headersRunning.value = false
+        }
+    }
+
+    // ── Threat Intel ──
+    private val _threatResult = MutableStateFlow<com.eagleeye.data.ThreatIntelResult?>(null)
+    val threatResult: StateFlow<com.eagleeye.data.ThreatIntelResult?> = _threatResult.asStateFlow()
+    private val _threatRunning = MutableStateFlow(false)
+    val threatRunning: StateFlow<Boolean> = _threatRunning.asStateFlow()
+
+    fun runThreatIntel(ip: String, abuseKey: String = "") {
+        viewModelScope.launch(Dispatchers.IO) {
+            _threatRunning.value = true
+            _threatResult.value = null
+            _threatResult.value = threatIntelClient.check(ip, abuseKey)
+            _threatRunning.value = false
+        }
+    }
+
+    // ── Shodan ──
+    private val _shodanResult = MutableStateFlow<com.eagleeye.data.ShodanResult?>(null)
+    val shodanResult: StateFlow<com.eagleeye.data.ShodanResult?> = _shodanResult.asStateFlow()
+    private val _shodanRunning = MutableStateFlow(false)
+    val shodanRunning: StateFlow<Boolean> = _shodanRunning.asStateFlow()
+
+    fun runShodanLookup(ip: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _shodanRunning.value = true
+            _shodanResult.value = null
+            _shodanResult.value = shodanClient.lookup(ip)
+            _shodanRunning.value = false
         }
     }
 }

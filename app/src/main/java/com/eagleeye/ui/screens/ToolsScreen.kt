@@ -27,7 +27,7 @@ import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN }
 
 @Composable
 fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = null) {
@@ -61,6 +61,9 @@ fun ToolsScreen(viewModel: ToolsViewModel, packetViewModel: PacketViewModel? = n
             Tool.CVE         -> CveTool(viewModel)
             Tool.PORTAL      -> CaptivePortalTool(viewModel)
             Tool.PACKETS     -> packetViewModel?.let { PacketAnalyzerTool(it) }
+            Tool.HEADERS     -> HeadersTool(viewModel)
+            Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
+            Tool.SHODAN      -> ShodanTool(viewModel)
         }
     }
 }
@@ -78,7 +81,10 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.VPN_LEAK to (Icons.Default.VpnKey to "VPN"),
         Tool.CVE to (Icons.Default.BugReport to "CVE"),
         Tool.PORTAL to (Icons.Default.Sensors to "Portal"),
-        Tool.PACKETS to (Icons.Default.NetworkCheck to "Packets")
+        Tool.PACKETS to (Icons.Default.NetworkCheck to "Packets"),
+        Tool.HEADERS to (Icons.Default.Security to "Headers"),
+        Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
+        Tool.SHODAN to (Icons.Default.Radar to "Shodan")
     )
     Row(
         modifier = Modifier
@@ -1168,4 +1174,510 @@ private fun latencyColor(ms: Long) = when {
     ms < 20 -> CyberGreen
     ms < 80 -> CyberYellow
     else -> CyberOrange
+}
+
+// ── HTTP SECURITY HEADERS ─────────────────────────────────────────────────────
+
+@Composable
+private fun HeadersTool(viewModel: ToolsViewModel) {
+    var url by remember { mutableStateOf("https://") }
+    val result by viewModel.headersResult.collectAsState()
+    val running by viewModel.headersRunning.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ToolInputRow(
+            value = url, onValueChange = { url = it },
+            label = "URL", placeholder = "https://example.com",
+            onRun = { kb?.hide(); viewModel.runHeadersCheck(url) },
+            running = running
+        )
+
+        if (running) LoadingCard("Analyzing HTTP security headers...")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Text(r.url, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+                return@let
+            }
+
+            val gradeColor = when (r.grade) {
+                com.eagleeye.data.HeaderGrade.A_PLUS -> CyberGreen
+                com.eagleeye.data.HeaderGrade.A      -> CyberGreen
+                com.eagleeye.data.HeaderGrade.B      -> CyberYellow
+                com.eagleeye.data.HeaderGrade.C      -> CyberOrange
+                com.eagleeye.data.HeaderGrade.F,
+                com.eagleeye.data.HeaderGrade.ERROR  -> CyberRed
+            }
+            val gradeLabel = when (r.grade) {
+                com.eagleeye.data.HeaderGrade.A_PLUS -> "A+"
+                else -> r.grade.name
+            }
+
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(r.url.take(50), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        if (r.responseCode > 0) {
+                            Text("HTTP ${r.responseCode}", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(gradeColor.copy(alpha = 0.12f))
+                            .border(2.dp, gradeColor, androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(gradeLabel, style = MaterialTheme.typography.titleSmall, color = gradeColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+                Text("Score: ${r.score}/100", style = MaterialTheme.typography.bodySmall, color = gradeColor)
+                Spacer(Modifier.height(10.dp))
+                Text("SECURITY HEADERS", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                Spacer(Modifier.height(6.dp))
+
+                r.headers.forEach { entry -> SecurityHeaderRow(entry) }
+
+                if (r.infoLeaks.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("INFO LEAKS", style = MaterialTheme.typography.labelMedium, color = CyberYellow)
+                    Spacer(Modifier.height(4.dp))
+                    r.infoLeaks.forEach { leak ->
+                        Row(
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, tint = CyberYellow, modifier = Modifier.size(13.dp))
+                            Text(leak, style = MaterialTheme.typography.bodySmall, color = CyberYellow)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                val recommendation = when (r.grade) {
+                    com.eagleeye.data.HeaderGrade.A_PLUS -> "Excellent security headers configuration."
+                    com.eagleeye.data.HeaderGrade.A      -> "Good configuration. Minor improvements possible."
+                    com.eagleeye.data.HeaderGrade.B      -> "Moderate security. Several headers missing or weak."
+                    com.eagleeye.data.HeaderGrade.C      -> "Poor security. Add critical missing headers."
+                    com.eagleeye.data.HeaderGrade.F,
+                    com.eagleeye.data.HeaderGrade.ERROR  -> "Critical: Most security headers are absent."
+                }
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(gradeColor.copy(alpha = 0.07f))
+                        .padding(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, null, tint = gradeColor, modifier = Modifier.size(14.dp))
+                    Text(recommendation, style = MaterialTheme.typography.bodySmall, color = gradeColor)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecurityHeaderRow(entry: com.eagleeye.data.SecurityHeaderEntry) {
+    val statusColor = when (entry.status) {
+        com.eagleeye.data.HeaderStatus.PRESENT -> CyberGreen
+        com.eagleeye.data.HeaderStatus.WEAK    -> CyberOrange
+        com.eagleeye.data.HeaderStatus.MISSING -> CyberRed
+    }
+    val statusLabel = when (entry.status) {
+        com.eagleeye.data.HeaderStatus.PRESENT -> "PRESENT"
+        com.eagleeye.data.HeaderStatus.WEAK    -> "WEAK"
+        com.eagleeye.data.HeaderStatus.MISSING -> "MISSING"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(entry.name, style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Medium)
+            Text(entry.description, style = MaterialTheme.typography.labelSmall, color = TextDim)
+        }
+        Spacer(Modifier.width(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                "${entry.points}pt",
+                style = MaterialTheme.typography.labelSmall,
+                color = statusColor
+            )
+            Text(
+                statusLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = statusColor,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(statusColor.copy(alpha = 0.12f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+    }
+    HorizontalDivider(color = CardBorderDark.copy(alpha = 0.3f), thickness = 0.5.dp)
+}
+
+// ── THREAT INTELLIGENCE ───────────────────────────────────────────────────────
+
+@Composable
+private fun ThreatIntelTool(viewModel: ToolsViewModel) {
+    var ip by remember { mutableStateOf("") }
+    var abuseKey by remember { mutableStateOf("") }
+    var showAbuseKey by remember { mutableStateOf(false) }
+    val result by viewModel.threatResult.collectAsState()
+    val running by viewModel.threatRunning.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ToolInputRow(
+            value = ip, onValueChange = { ip = it },
+            label = "IP Address", placeholder = "1.2.3.4",
+            onRun = { kb?.hide(); viewModel.runThreatIntel(ip, abuseKey) },
+            running = running
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(SurfaceVariantDark)
+                .clickable { showAbuseKey = !showAbuseKey }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Add AbuseIPDB Key (optional)", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Icon(
+                if (showAbuseKey) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                null, tint = TextDim, modifier = Modifier.size(16.dp)
+            )
+        }
+
+        AnimatedVisibility(visible = showAbuseKey) {
+            OutlinedTextField(
+                value = abuseKey,
+                onValueChange = { abuseKey = it },
+                label = { Text("AbuseIPDB API Key", style = MaterialTheme.typography.labelMedium) },
+                placeholder = { Text("Paste your key here") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = cyberTextFieldColors()
+            )
+        }
+
+        if (running) LoadingCard("Checking threat intelligence...")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+                return@let
+            }
+
+            val riskColor = when (r.riskLevel) {
+                "SAFE"      -> CyberGreen
+                "SUSPICIOUS" -> CyberOrange
+                "HIGH RISK" -> CyberRed
+                else        -> TextDim
+            }
+
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(r.ip, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
+                        Text("Threat Intelligence", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(riskColor.copy(alpha = 0.14f))
+                            .border(1.dp, riskColor.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            when (r.riskLevel) {
+                                "SAFE" -> Icons.Default.CheckCircle
+                                "HIGH RISK" -> Icons.Default.Dangerous
+                                else -> Icons.Default.Warning
+                            },
+                            null, tint = riskColor, modifier = Modifier.size(13.dp)
+                        )
+                        Text(r.riskLevel, style = MaterialTheme.typography.labelMedium, color = riskColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                if (r.country.isNotBlank()) DetailRow2("Country", "${r.country} (${r.countryCode})")
+                if (r.city.isNotBlank()) DetailRow2("City", r.city)
+                if (r.isp.isNotBlank()) DetailRow2("ISP", r.isp)
+                if (r.org.isNotBlank()) DetailRow2("Org", r.org)
+                if (r.asn.isNotBlank()) DetailRow2("ASN", r.asn)
+
+                if (r.isProxy || r.isHosting) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (r.isProxy) {
+                            Text(
+                                "PROXY/VPN",
+                                style = MaterialTheme.typography.labelSmall, color = CyberOrange,
+                                modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                                    .background(CyberOrange.copy(alpha = 0.12f))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                        if (r.isHosting) {
+                            Text(
+                                "HOSTING/DATACENTER",
+                                style = MaterialTheme.typography.labelSmall, color = CyberYellow,
+                                modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                                    .background(CyberYellow.copy(alpha = 0.12f))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (r.riskReasons.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("RISK INDICATORS", style = MaterialTheme.typography.labelMedium, color = riskColor)
+                    Spacer(Modifier.height(4.dp))
+                    r.riskReasons.forEach { reason ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, tint = riskColor, modifier = Modifier.size(12.dp))
+                            Text(reason, style = MaterialTheme.typography.bodySmall, color = riskColor)
+                        }
+                    }
+                }
+
+                if (r.abuseScore >= 0) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("ABUSEIPDB", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                    Spacer(Modifier.height(6.dp))
+                    val abuseColor = when {
+                        r.abuseScore >= 75 -> CyberRed
+                        r.abuseScore >= 25 -> CyberOrange
+                        else -> CyberGreen
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { r.abuseScore / 100f },
+                            modifier = Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            color = abuseColor,
+                            trackColor = SurfaceVariantDark
+                        )
+                        Text("${r.abuseScore}%", style = MaterialTheme.typography.labelMedium, color = abuseColor)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text("${r.abuseReports} reports in last 90 days", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    if (r.abuseCategories.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            r.abuseCategories.forEach { cat ->
+                                Text(
+                                    cat, style = MaterialTheme.typography.labelSmall, color = CyberRed,
+                                    modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                                        .background(CyberRed.copy(alpha = 0.10f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── SHODAN INTERNETDB ─────────────────────────────────────────────────────────
+
+@Composable
+private fun ShodanTool(viewModel: ToolsViewModel) {
+    var ip by remember { mutableStateOf("") }
+    val result by viewModel.shodanResult.collectAsState()
+    val running by viewModel.shodanRunning.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ToolInputRow(
+            value = ip, onValueChange = { ip = it },
+            label = "IP Address", placeholder = "Use your public IP or any IPv4",
+            onRun = { kb?.hide(); viewModel.runShodanLookup(ip) },
+            running = running
+        )
+
+        if (running) LoadingCard("Querying Shodan InternetDB...")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+                return@let
+            }
+
+            val hasData = r.ports.isNotEmpty() || r.hostnames.isNotEmpty() || r.cves.isNotEmpty() || r.tags.isNotEmpty()
+
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(r.ip, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Radar, null, tint = CyberBlue, modifier = Modifier.size(20.dp))
+                }
+
+                if (!hasData) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.SearchOff, null, tint = TextDim, modifier = Modifier.size(14.dp))
+                        Text("This IP has no data in Shodan's database", style = MaterialTheme.typography.bodySmall, color = TextDim)
+                    }
+                } else {
+                    if (r.ports.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("OPEN PORTS (${r.ports.size})", style = MaterialTheme.typography.labelMedium, color = CyberGreen)
+                        Spacer(Modifier.height(6.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            r.ports.chunked(6).forEach { rowPorts ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    rowPorts.forEach { port ->
+                                        Text(
+                                            "$port",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = CyberGreen,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(CyberGreen.copy(alpha = 0.10f))
+                                                .border(1.dp, CyberGreen.copy(alpha = 0.25f), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (r.hostnames.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("HOSTNAMES", style = MaterialTheme.typography.labelMedium, color = CyberBlue)
+                        Spacer(Modifier.height(4.dp))
+                        r.hostnames.forEach { hostname ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Language, null, tint = CyberBlue, modifier = Modifier.size(12.dp))
+                                Text(hostname, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                            }
+                        }
+                    }
+
+                    if (r.cves.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("CVEs (${r.cves.size})", style = MaterialTheme.typography.labelMedium, color = CyberRed)
+                        Spacer(Modifier.height(4.dp))
+                        r.cves.forEach { cve ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            ) {
+                                Text(
+                                    cve,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = CyberRed,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CyberRed.copy(alpha = 0.10f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (r.tags.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("TAGS", style = MaterialTheme.typography.labelMedium, color = CyberYellow)
+                        Spacer(Modifier.height(4.dp))
+                        Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            r.tags.forEach { tag ->
+                                Text(
+                                    tag,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = CyberYellow,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(CyberYellow.copy(alpha = 0.10f))
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(SurfaceVariantDark)
+                        .padding(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, null, tint = TextDim, modifier = Modifier.size(12.dp))
+                    Text("Data from Shodan InternetDB — passive data only", style = MaterialTheme.typography.labelSmall, color = TextDim)
+                }
+            }
+        }
+    }
 }
