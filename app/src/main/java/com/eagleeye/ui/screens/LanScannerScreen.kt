@@ -1,5 +1,10 @@
 package com.eagleeye.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -14,9 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.eagleeye.data.IoTProfile
 import com.eagleeye.data.IoTRisk
 import com.eagleeye.data.LanDevice
@@ -25,6 +33,9 @@ import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.modules.lan.ScanState
 import com.eagleeye.modules.wifi.WifiViewModel
 import com.eagleeye.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null, wifiViewModel: WifiViewModel? = null) {
@@ -194,11 +205,28 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
 @Composable
 private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: IoTProfile? = null) {
     var expanded by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var pingState by remember { mutableStateOf<PingState>(PingState.Idle) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val borderColor = when {
         !device.isOnline -> TextDim.copy(alpha = 0.3f)
         !device.isKnown -> CyberOrange.copy(alpha = 0.5f)
         else -> CardBorderDark
+    }
+
+    // Rename dialog
+    if (showRenameDialog) {
+        DeviceRenameDialog(
+            currentAlias = device.alias,
+            deviceName = device.displayName,
+            onConfirm = { alias ->
+                viewModel.setAlias(device.mac, alias)
+                showRenameDialog = false
+            },
+            onDismiss = { showRenameDialog = false }
+        )
     }
 
     Column(
@@ -222,7 +250,6 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: I
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // Status dot
                 DeviceIcon(device)
 
                 Column {
@@ -361,7 +388,7 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: I
                             p.riskLevel.name,
                             style = MaterialTheme.typography.labelMedium, color = riskColor,
                             modifier = Modifier
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(4.dp))
                                 .background(riskColor.copy(alpha = 0.12f))
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         )
@@ -379,7 +406,7 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: I
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(CyberRed.copy(alpha = 0.08f))
                                 .padding(8.dp)
                         ) {
@@ -392,24 +419,238 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: I
                     }
                 }
 
+                // ── Actions ────────────────────────────────────────────────────
                 Spacer(modifier = Modifier.height(4.dp))
-                // Mark as known button
-                if (!device.isKnown) {
-                    OutlinedButton(
-                        onClick = { viewModel.markKnown(device.mac, true) },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberGreen),
-                        border = BorderStroke(1.dp, CyberGreen.copy(alpha = 0.4f)),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(6.dp)
+                HorizontalDivider(color = CardBorderDark, thickness = 0.5.dp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("ACTIONS", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Action buttons row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    // Rename
+                    DeviceActionBtn(
+                        icon = Icons.Default.Edit,
+                        label = "Rename",
+                        color = CyberBlue
+                    ) { showRenameDialog = true }
+
+                    // Ping
+                    DeviceActionBtn(
+                        icon = Icons.Default.NetworkCheck,
+                        label = if (pingState is PingState.Running) "Pinging…" else "Ping",
+                        color = CyberGreen,
+                        enabled = pingState !is PingState.Running
                     ) {
-                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Mark as Known Device", style = MaterialTheme.typography.bodySmall)
+                        scope.launch {
+                            pingState = PingState.Running
+                            pingState = withContext(Dispatchers.IO) {
+                                try {
+                                    val proc = Runtime.getRuntime()
+                                        .exec(arrayOf("ping", "-c", "1", "-W", "2", device.ip))
+                                    val out = proc.inputStream.bufferedReader().readText()
+                                    val ms = Regex("time=(\\d+\\.?\\d*) ms").find(out)?.groupValues?.get(1)
+                                    if (ms != null) PingState.Success("${ms}ms")
+                                    else PingState.Failed("No reply")
+                                } catch (e: Exception) {
+                                    PingState.Failed("Error")
+                                }
+                            }
+                        }
                     }
+
+                    // Open web panel (only if web port exists)
+                    val webPort = device.openPortList.firstOrNull { it == 443 || it == 80 || it == 8080 || it == 8443 }
+                    if (webPort != null) {
+                        val scheme = if (webPort == 443 || webPort == 8443) "https" else "http"
+                        val url = "$scheme://${device.ip}${if (webPort != 80 && webPort != 443) ":$webPort" else ""}"
+                        DeviceActionBtn(
+                            icon = Icons.Default.Language,
+                            label = "Web Panel",
+                            color = CyberYellow
+                        ) {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+
+                    // Copy IP
+                    DeviceActionBtn(
+                        icon = Icons.Default.ContentCopy,
+                        label = "Copy IP",
+                        color = TextSecondary
+                    ) {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("IP Address", device.ip))
+                    }
+
+                    // Mark known / unmark
+                    if (!device.isKnown) {
+                        DeviceActionBtn(
+                            icon = Icons.Default.CheckCircle,
+                            label = "Mark Known",
+                            color = CyberGreen
+                        ) { viewModel.markKnown(device.mac, true) }
+                    } else {
+                        DeviceActionBtn(
+                            icon = Icons.Default.RemoveCircleOutline,
+                            label = "Unmark",
+                            color = TextDim
+                        ) { viewModel.markKnown(device.mac, false) }
+                    }
+                }
+
+                // Ping result banner
+                when (val ps = pingState) {
+                    is PingState.Success -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CyberGreen.copy(alpha = 0.08f))
+                                .border(1.dp, CyberGreen.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, null, tint = CyberGreen, modifier = Modifier.size(14.dp))
+                            Text("${device.ip} replied in ${ps.ms}", style = MaterialTheme.typography.bodySmall, color = CyberGreen)
+                        }
+                    }
+                    is PingState.Failed -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CyberRed.copy(alpha = 0.08f))
+                                .border(1.dp, CyberRed.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                            Text("${device.ip}: ${ps.reason}", style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                        }
+                    }
+                    else -> {}
                 }
             }
         }
     }
+}
+
+private sealed class PingState {
+    object Idle : PingState()
+    object Running : PingState()
+    data class Success(val ms: String) : PingState()
+    data class Failed(val reason: String) : PingState()
+}
+
+@Composable
+private fun DeviceActionBtn(
+    icon: ImageVector,
+    label: String,
+    color: androidx.compose.ui.graphics.Color,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = color,
+            disabledContentColor = TextDim
+        ),
+        border = BorderStroke(1.dp, if (enabled) color.copy(alpha = 0.35f) else TextDim.copy(alpha = 0.2f)),
+        shape = RoundedCornerShape(6.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Icon(icon, null, modifier = Modifier.size(13.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun DeviceRenameDialog(
+    currentAlias: String,
+    deviceName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(currentAlias) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(12.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Edit, null, tint = CyberBlue, modifier = Modifier.size(18.dp))
+                Text("Rename Device", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Device: $deviceName",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDim
+                )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Alias", style = MaterialTheme.typography.bodySmall) },
+                    placeholder = { Text("e.g. Living Room TV", style = MaterialTheme.typography.bodySmall) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberBlue.copy(alpha = 0.6f),
+                        unfocusedBorderColor = CardBorderDark,
+                        focusedLabelColor = CyberBlue,
+                        unfocusedLabelColor = TextDim,
+                        cursorColor = CyberBlue,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                if (text.isNotBlank() && text != currentAlias) {
+                    Text(
+                        "Will show as \"$text\" in all screens",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = CyberBlue.copy(alpha = 0.7f)
+                    )
+                }
+                if (currentAlias.isNotBlank()) {
+                    TextButton(
+                        onClick = { onConfirm("") },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Clear alias", style = MaterialTheme.typography.labelSmall, color = TextDim)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text.trim()) },
+                enabled = text.trim() != currentAlias
+            ) {
+                Text("Save", color = CyberBlue, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextDim)
+            }
+        }
+    )
 }
 
 @Composable
