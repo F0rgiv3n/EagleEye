@@ -121,16 +121,19 @@ app/src/main/java/com/eagleeye/
 
 ---
 
-### Part 4 — Network Tools 📋 Planned
+### Part 4 — Network Tools ✅
 | Feature | Status |
 |---|---|
-| Ping with min/avg/max/jitter statistics | 📋 |
-| Visual traceroute with hop list | 📋 |
-| Port scanner (TCP connect, top 1000 ports) | 📋 |
-| Service/banner detection (HTTP, SSH, FTP, Telnet) | 📋 |
-| DNS lookup / reverse DNS | 📋 |
-| Public IP + IPv6 detection | 📋 |
-| Wake on LAN | 📋 |
+| Ping — min/avg/max/jitter stats + visual bar chart per sample | ✅ Done |
+| Traceroute — hop list with IP, hostname, latency, timeout detection | ✅ Done |
+| Port scanner — Quick (10) / Full (35 ports) with service names | ✅ Done |
+| Banner grabbing per open port | ✅ Done |
+| Dangerous port warnings (Telnet, FTP, Metasploit, PPTP) | ✅ Done |
+| DNS lookup — forward A/AAAA + reverse PTR | ✅ Done |
+| Public IPv4 + IPv6 detection (dual provider fallback) | ✅ Done |
+| Local IP + gateway display | ✅ Done |
+| Wake on LAN — magic packet broadcast | ✅ Done |
+| 6-tab tool selector UI | ✅ Done |
 
 ---
 

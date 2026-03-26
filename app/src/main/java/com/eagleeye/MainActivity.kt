@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eagleeye.modules.wifi.WifiViewModel
 import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.modules.security.SecurityViewModel
+import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -68,6 +69,7 @@ fun EagleEyeApp() {
     val wifiViewModel: WifiViewModel = viewModel()
     val lanViewModel: LanViewModel = viewModel()
     val securityViewModel: SecurityViewModel = viewModel()
+    val toolsViewModel: ToolsViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
     Scaffold(
@@ -109,11 +111,7 @@ fun EagleEyeApp() {
                 Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
                 Screen.LanScanner -> LanScannerScreen(lanViewModel)
                 Screen.Security -> SecurityScreen(securityViewModel)
-                Screen.Tools -> PlaceholderScreen(
-                    icon = Icons.Default.Build,
-                    title = "Network Tools",
-                    subtitle = "Coming in Part 4"
-                )
+                Screen.Tools -> ToolsScreen(toolsViewModel)
             }
         }
     }
