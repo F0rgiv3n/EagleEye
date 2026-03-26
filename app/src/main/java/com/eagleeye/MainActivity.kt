@@ -22,6 +22,7 @@ import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.modules.mac.MacViewModel
 import com.eagleeye.modules.monitor.MonitorViewModel
 import com.eagleeye.modules.iot.IoTViewModel
+import com.eagleeye.modules.settings.SettingsViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -61,6 +62,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object Tools : Screen("tools", "Tools", Icons.Default.Build)
     object Mac : Screen("mac", "MAC", Icons.Default.PrivacyTip)
     object Monitor : Screen("monitor", "Monitor", Icons.Default.Radar)
+    object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
 val bottomNavItems = listOf(
@@ -70,7 +72,8 @@ val bottomNavItems = listOf(
     Screen.Security,
     Screen.Tools,
     Screen.Mac,
-    Screen.Monitor
+    Screen.Monitor,
+    Screen.Settings
 )
 
 @Composable
@@ -82,62 +85,77 @@ fun EagleEyeApp() {
     val macViewModel: MacViewModel = viewModel()
     val monitorViewModel: MonitorViewModel = viewModel()
     val iotViewModel: IoTViewModel = viewModel()
+    val settingsViewModel: SettingsViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
     val unreadCount by monitorViewModel.unreadCount.collectAsState()
+    val settings by settingsViewModel.settings.collectAsState()
 
-    Scaffold(
-        containerColor = BackgroundDark,
-        bottomBar = {
-            NavigationBar(
-                containerColor = SurfaceDark,
-                tonalElevation = 0.dp
-            ) {
-                bottomNavItems.forEach { screen ->
-                    NavigationBarItem(
-                        selected = currentScreen == screen,
-                        onClick = {
-                            currentScreen = screen
-                            if (screen == Screen.Monitor) monitorViewModel.markAllRead()
-                        },
-                        icon = {
-                            BadgedBox(badge = {
-                                if (screen == Screen.Monitor && unreadCount > 0) {
-                                    Badge(containerColor = CyberRed) {
-                                        Text("$unreadCount", style = MaterialTheme.typography.labelMedium)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = BackgroundDark,
+            bottomBar = {
+                NavigationBar(
+                    containerColor = SurfaceDark,
+                    tonalElevation = 0.dp
+                ) {
+                    bottomNavItems.forEach { screen ->
+                        NavigationBarItem(
+                            selected = currentScreen == screen,
+                            onClick = {
+                                currentScreen = screen
+                                if (screen == Screen.Monitor) monitorViewModel.markAllRead()
+                            },
+                            icon = {
+                                BadgedBox(badge = {
+                                    if (screen == Screen.Monitor && unreadCount > 0) {
+                                        Badge(containerColor = CyberRed) {
+                                            Text("$unreadCount", style = MaterialTheme.typography.labelMedium)
+                                        }
                                     }
+                                }) {
+                                    Icon(screen.icon, contentDescription = screen.label)
                                 }
-                            }) {
-                                Icon(screen.icon, contentDescription = screen.label)
-                            }
-                        },
-                        label = {
-                            Text(screen.label, style = MaterialTheme.typography.labelMedium)
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = CyberGreen,
-                            selectedTextColor = CyberGreen,
-                            unselectedIconColor = TextDim,
-                            unselectedTextColor = TextDim,
-                            indicatorColor = CyberGreen.copy(alpha = 0.12f)
+                            },
+                            label = {
+                                Text(screen.label, style = MaterialTheme.typography.labelMedium)
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = CyberGreen,
+                                selectedTextColor = CyberGreen,
+                                unselectedIconColor = TextDim,
+                                unselectedTextColor = TextDim,
+                                indicatorColor = CyberGreen.copy(alpha = 0.12f)
+                            )
                         )
-                    )
+                    }
+                }
+            }
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                when (currentScreen) {
+                    Screen.Dashboard -> DashboardScreen(wifiViewModel)
+                    Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
+                    Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel)
+                    Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
+                    Screen.Tools -> ToolsScreen(toolsViewModel)
+                    Screen.Mac -> MacScreen(macViewModel)
+                    Screen.Monitor -> MonitorScreen(monitorViewModel)
+                    Screen.Settings -> SettingsScreen(settingsViewModel)
                 }
             }
         }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when (currentScreen) {
-                Screen.Dashboard -> DashboardScreen(wifiViewModel)
-                Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
-                Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel)
-                Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
-                Screen.Tools -> ToolsScreen(toolsViewModel)
-                Screen.Mac -> MacScreen(macViewModel)
-                Screen.Monitor -> MonitorScreen(monitorViewModel)
+
+        if (!settings.onboardingDone) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BackgroundDark)
+            ) {
+                OnboardingScreen(onDone = { settingsViewModel.setOnboardingDone() })
             }
         }
     }

@@ -215,6 +215,23 @@ app/src/main/java/com/eagleeye/
 
 ---
 
+### Part 9 — Settings + Onboarding + Widget ✅
+| Feature | Status |
+|---|---|
+| Persistent settings via DataStore Preferences | ✅ Done |
+| Settings screen: scan interval (5/10/15/30/60 min chips) | ✅ Done |
+| Settings screen: port scan mode toggle (Quick/Full) | ✅ Done |
+| Settings screen: per-notification toggles (5 types) | ✅ Done |
+| Settings screen: auto-start monitor switch | ✅ Done |
+| Settings screen: About section (version, description) | ✅ Done |
+| First-run onboarding flow (4-page HorizontalPager) | ✅ Done |
+| Onboarding: LAN Scanner, Threat Detection, Privacy Tools highlights | ✅ Done |
+| Home screen widget (2×2 Glance) — security grade, threat count, last scan | ✅ Done |
+| Widget taps open app | ✅ Done |
+| Settings tab in bottom navigation | ✅ Done |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

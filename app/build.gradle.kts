@@ -60,6 +60,9 @@ dependencies {
     kapt(libs.androidx.room.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
