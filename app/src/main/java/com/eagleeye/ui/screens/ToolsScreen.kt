@@ -1104,6 +1104,7 @@ private fun CveCard(cve: com.eagleeye.data.CveEntry) {
         com.eagleeye.data.CveSeverity.LOW      -> CyberBlue
         com.eagleeye.data.CveSeverity.NONE     -> TextDim
     }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -1111,7 +1112,14 @@ private fun CveCard(cve: com.eagleeye.data.CveEntry) {
             .clip(RoundedCornerShape(8.dp))
             .background(SurfaceDark)
             .border(1.dp, scoreColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-            .clickable { expanded = !expanded }
+            .combinedClickable(
+                onClick = { expanded = !expanded },
+                onLongClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("CVE ID", cve.id))
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied: ${cve.id}", Toast.LENGTH_SHORT).show()
+                }
+            )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -2235,13 +2243,13 @@ private fun ExportTool(
             ReportSection(
                 icon = Icons.Default.Wifi,
                 label = "Network",
-                value = if (hasWifi) wifiInfo!!.ssid else "No connection data",
+                value = if (hasWifi) wifiInfo?.ssid ?: "Unknown" else "No connection data",
                 available = hasWifi
             )
             ReportSection(
                 icon = Icons.Default.Shield,
                 label = "Security Audit",
-                value = if (hasScore) "Grade ${score!!.grade}  ·  ${score.threats.size} threats  ·  ${score.total}/100"
+                value = if (hasScore) score?.let { "Grade ${it.grade}  ·  ${it.threats.size} threats  ·  ${it.total}/100" } ?: "Score unavailable"
                         else "No audit data — run Security scan first",
                 available = hasScore
             )

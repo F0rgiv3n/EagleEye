@@ -64,7 +64,7 @@ class CveRepository {
                 // Description (English)
                 val descriptions = cve.optJSONArray("descriptions")
                 val description = (0 until (descriptions?.length() ?: 0))
-                    .map { descriptions!!.getJSONObject(it) }
+                    .mapNotNull { descriptions?.optJSONObject(it) }
                     .firstOrNull { it.optString("lang") == "en" }
                     ?.optString("value", "No description") ?: "No description"
 
@@ -78,7 +78,7 @@ class CveRepository {
                 // References
                 val refsArray = cve.optJSONArray("references")
                 val refs = (0 until (refsArray?.length() ?: 0).coerceAtMost(3))
-                    .map { refsArray!!.getJSONObject(it).optString("url", "") }
+                    .mapNotNull { refsArray?.optJSONObject(it)?.optString("url", "") }
                     .filter { it.isNotBlank() }
 
                 entries.add(CveEntry(id, description, score, severity, published, refs))

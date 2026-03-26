@@ -53,7 +53,7 @@
 
         <service
             android:name=".modules.monitor.MonitorService"
-            android:foregroundServiceType="connectedDevice"
+            android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <service

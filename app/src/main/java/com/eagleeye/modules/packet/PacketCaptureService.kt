@@ -49,7 +49,7 @@ class PacketCaptureService : VpnService() {
         isRunning = true
 
         serviceScope.launch {
-            val fd = vpnInterface!!.fileDescriptor
+            val fd = vpnInterface?.fileDescriptor ?: return@launch
             val inputStream = FileInputStream(fd)
             @Suppress("UNUSED_VARIABLE")
             val outputStream = FileOutputStream(fd)

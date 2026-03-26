@@ -20,7 +20,7 @@ class BandwidthMonitor {
             val nowRx   = TrafficStats.getTotalRxBytes()
             val nowTx   = TrafficStats.getTotalTxBytes()
             val nowTime = System.currentTimeMillis()
-            val elapsedSec = (nowTime - prevTime) / 1000f
+            val elapsedSec = ((nowTime - prevTime) / 1000f).coerceAtLeast(0.001f)
 
             emit(BandwidthSample(
                 timestamp = nowTime,

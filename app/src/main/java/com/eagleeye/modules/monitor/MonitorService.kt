@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import com.eagleeye.data.EventSeverity
 import com.eagleeye.data.EventType
 import com.eagleeye.data.MonitorConfig
@@ -88,7 +89,7 @@ class MonitorService : Service() {
                 "⚠ $threatCount threat(s) detected — tap to view"
             updateForegroundNotification(statusText)
         } catch (e: Exception) {
-            // Don't crash the service on scan errors
+            Log.w("MonitorService", "Scan cycle error", e)
         }
     }
 
