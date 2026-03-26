@@ -43,8 +43,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _pingRunning.value = true
             _pingResult.value = null
-            _pingResult.value = tools.ping(host, count)
-            _pingRunning.value = false
+            try {
+                _pingResult.value = tools.ping(host, count)
+            } finally {
+                _pingRunning.value = false
+            }
         }
     }
 
@@ -58,8 +61,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _traceRunning.value = true
             _traceHops.value = emptyList()
-            _traceHops.value = tools.traceroute(host)
-            _traceRunning.value = false
+            try {
+                _traceHops.value = tools.traceroute(host)
+            } finally {
+                _traceRunning.value = false
+            }
         }
     }
 
@@ -76,12 +82,15 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             _portScanRunning.value = true
             _portResults.value = emptyList()
             _portScanProgress.value = 0f
-            val ports = if (quick) NetworkTools.QUICK_PORTS else NetworkTools.TOP_PORTS
-            val results = tools.scanPorts(host, ports) { done ->
-                _portScanProgress.value = done.toFloat() / ports.size
+            try {
+                val ports = if (quick) NetworkTools.QUICK_PORTS else NetworkTools.TOP_PORTS
+                val results = tools.scanPorts(host, ports) { done ->
+                    _portScanProgress.value = done.toFloat() / ports.size
+                }
+                _portResults.value = results
+            } finally {
+                _portScanRunning.value = false
             }
-            _portResults.value = results
-            _portScanRunning.value = false
         }
     }
 
@@ -95,8 +104,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _dnsRunning.value = true
             _dnsResult.value = null
-            _dnsResult.value = tools.dnsLookup(query)
-            _dnsRunning.value = false
+            try {
+                _dnsResult.value = tools.dnsLookup(query)
+            } finally {
+                _dnsRunning.value = false
+            }
         }
     }
 
@@ -109,8 +121,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchPublicIp() {
         viewModelScope.launch(Dispatchers.IO) {
             _ipLoading.value = true
-            _publicIp.value = tools.getPublicIpInfo()
-            _ipLoading.value = false
+            try {
+                _publicIp.value = tools.getPublicIpInfo()
+            } finally {
+                _ipLoading.value = false
+            }
         }
     }
 
@@ -136,8 +151,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _sslRunning.value = true
             _sslResult.value = null
-            _sslResult.value = sslInspector.inspect(host, port)
-            _sslRunning.value = false
+            try {
+                _sslResult.value = sslInspector.inspect(host, port)
+            } finally {
+                _sslRunning.value = false
+            }
         }
     }
 
@@ -151,8 +169,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _vpnRunning.value = true
             _vpnLeakResult.value = null
-            _vpnLeakResult.value = vpnDetector.detect()
-            _vpnRunning.value = false
+            try {
+                _vpnLeakResult.value = vpnDetector.detect()
+            } finally {
+                _vpnRunning.value = false
+            }
         }
     }
 
@@ -166,8 +187,11 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _cveRunning.value = true
             _cveResult.value = null
-            _cveResult.value = cveRepo.searchCves(keyword)
-            _cveRunning.value = false
+            try {
+                _cveResult.value = cveRepo.searchCves(keyword)
+            } finally {
+                _cveRunning.value = false
+            }
         }
     }
 
@@ -528,36 +552,50 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _httpRunning.value = true
             _httpResult.value = null
-            _httpResult.value = try {
-                val start = System.currentTimeMillis()
-                val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = method
-                connection.connectTimeout = 10_000
-                connection.readTimeout = 10_000
-                connection.setRequestProperty("User-Agent", "EagleEye/1.0")
-                headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
-                if (method == "POST" && body.isNotBlank()) {
-                    connection.doOutput = true
-                    connection.outputStream.use { it.write(body.toByteArray()) }
-                }
-                val statusCode = connection.responseCode
-                val statusMsg = connection.responseMessage ?: ""
-                val respHeaders = connection.headerFields.entries
-                    .filter { it.key != null }
-                    .associate { it.key to it.value.joinToString(", ") }
-                val stream = if (statusCode >= 400) connection.errorStream else connection.inputStream
-                val respBody = stream?.bufferedReader()?.use { it.readText() }?.take(8192) ?: ""
-                val duration = System.currentTimeMillis() - start
-                com.eagleeye.data.HttpClientResult(
-                    url = url, method = method,
-                    statusCode = statusCode, statusMessage = statusMsg,
-                    responseHeaders = respHeaders, responseBody = respBody,
-                    durationMs = duration
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                _httpResult.value = com.eagleeye.data.HttpClientResult(
+                    url = url, method = method, error = "Invalid URL — must start with http:// or https://"
                 )
-            } catch (e: Exception) {
-                com.eagleeye.data.HttpClientResult(url = url, method = method, error = e.message ?: "Request failed")
+                _httpRunning.value = false
+                return@launch
             }
-            _httpRunning.value = false
+            try {
+                _httpResult.value = try {
+                    val start = System.currentTimeMillis()
+                    val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = method
+                    connection.connectTimeout = 10_000
+                    connection.readTimeout = 10_000
+                    connection.setRequestProperty("User-Agent", "EagleEye/1.0")
+                    headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
+                    if (method == "POST" && body.isNotBlank()) {
+                        connection.doOutput = true
+                        connection.outputStream.use { it.write(body.toByteArray()) }
+                    }
+                    try {
+                        val statusCode = connection.responseCode
+                        val statusMsg = connection.responseMessage ?: ""
+                        val respHeaders = connection.headerFields.entries
+                            .filter { it.key != null }
+                            .associate { it.key to it.value.joinToString(", ") }
+                        val stream = if (statusCode >= 400) connection.errorStream else connection.inputStream
+                        val respBody = stream?.bufferedReader()?.use { it.readText() }?.take(8192) ?: ""
+                        val duration = System.currentTimeMillis() - start
+                        com.eagleeye.data.HttpClientResult(
+                            url = url, method = method,
+                            statusCode = statusCode, statusMessage = statusMsg,
+                            responseHeaders = respHeaders, responseBody = respBody,
+                            durationMs = duration
+                        )
+                    } finally {
+                        connection.disconnect()
+                    }
+                } catch (e: Exception) {
+                    com.eagleeye.data.HttpClientResult(url = url, method = method, error = e.message ?: "Request failed")
+                }
+            } finally {
+                _httpRunning.value = false
+            }
         }
     }
 
@@ -572,19 +610,26 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _certTransRunning.value = true
             _certTransResult.value = null
-            _certTransResult.value = try {
-                val url = java.net.URL("https://crt.sh/?q=%25.$d&output=json")
-                val conn = url.openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 12_000
-                conn.readTimeout = 12_000
-                conn.setRequestProperty("Accept", "application/json")
-                val json = conn.inputStream.bufferedReader().use { it.readText() }
-                val entries = parseCertShJson(json, d)
-                com.eagleeye.data.CertTransResult(domain = d, entries = entries)
-            } catch (e: Exception) {
-                com.eagleeye.data.CertTransResult(domain = d, error = e.message ?: "Lookup failed")
+            try {
+                _certTransResult.value = try {
+                    val url = java.net.URL("https://crt.sh/?q=%25.$d&output=json")
+                    val conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 12_000
+                    conn.readTimeout = 12_000
+                    conn.setRequestProperty("Accept", "application/json")
+                    try {
+                        val json = conn.inputStream.bufferedReader().use { it.readText() }
+                        val entries = parseCertShJson(json, d)
+                        com.eagleeye.data.CertTransResult(domain = d, entries = entries)
+                    } finally {
+                        conn.disconnect()
+                    }
+                } catch (e: Exception) {
+                    com.eagleeye.data.CertTransResult(domain = d, error = e.message ?: "Lookup failed")
+                }
+            } finally {
+                _certTransRunning.value = false
             }
-            _certTransRunning.value = false
         }
     }
 

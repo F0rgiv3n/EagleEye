@@ -67,6 +67,10 @@ class NetworkTools(private val context: Context) {
     suspend fun traceroute(host: String, maxHops: Int = 30): List<TracerouteHop> =
         withContext(Dispatchers.IO) {
             val hops = mutableListOf<TracerouteHop>()
+            // Validate host to prevent command injection
+            if (!host.matches(Regex("^[a-zA-Z0-9._-]+$"))) {
+                return@withContext listOf(TracerouteHop(1, "*", "Invalid host", -1))
+            }
             try {
                 val process = Runtime.getRuntime().exec(
                     arrayOf("traceroute", "-m", "$maxHops", "-w", "1", "-q", "1", host)

@@ -92,7 +92,7 @@ class MacRepository(private val context: Context) {
         try {
             val commands = arrayOf(
                 "ip link set wlan0 down",
-                "ip link set wlan0 address $newMac",
+                "ip link set wlan0 address '$newMac'",
                 "ip link set wlan0 up"
             )
             val script = commands.joinToString(" && ")

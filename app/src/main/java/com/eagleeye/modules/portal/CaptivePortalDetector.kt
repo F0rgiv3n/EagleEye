@@ -72,11 +72,14 @@ class CaptivePortalDetector {
 
                 when {
                     // 204 = no content = no portal
-                    responseCode == 204 -> return@probe CaptivePortalResult(
-                        status = PortalStatus.NONE,
-                        checkedUrl = probeUrl,
-                        responseCode = 204
-                    )
+                    responseCode == 204 -> {
+                        conn.disconnect()
+                        return@probe CaptivePortalResult(
+                            status = PortalStatus.NONE,
+                            checkedUrl = probeUrl,
+                            responseCode = 204
+                        )
+                    }
 
                     // 200 on generate_204 = portal intercepted response
                     responseCode == 200 && probeUrl.contains("generate_204") -> {
@@ -87,7 +90,7 @@ class CaptivePortalDetector {
                         val portalDomain = URL(currentUrl).host
                         val isLegit = knownLegitDomains.any { portalDomain.endsWith(it) }
                         val suspicionReasons = analyseSuspicion(body, currentUrl, hasCertIssue, isLegit)
-
+                        conn.disconnect()
                         return@probe CaptivePortalResult(
                             status = if (suspicionReasons.isEmpty()) PortalStatus.DETECTED else PortalStatus.SUSPICIOUS,
                             portalUrl = currentUrl,
@@ -103,23 +106,28 @@ class CaptivePortalDetector {
 
                     // Redirect — follow it
                     responseCode in 301..399 -> {
-                        val location = conn.getHeaderField("Location") ?: return@probe CaptivePortalResult(
-                            status = PortalStatus.ERROR, checkedUrl = probeUrl,
-                            error = "Redirect with no Location header"
-                        )
+                        val location = conn.getHeaderField("Location") ?: run {
+                            conn.disconnect()
+                            return@probe CaptivePortalResult(
+                                status = PortalStatus.ERROR, checkedUrl = probeUrl,
+                                error = "Redirect with no Location header"
+                            )
+                        }
                         redirectChain.add(currentUrl)
                         currentUrl = if (location.startsWith("http")) location
                                      else URL(URL(currentUrl), location).toString()
                         conn.disconnect()
                     }
 
-                    else -> return@probe CaptivePortalResult(
-                        status = PortalStatus.ERROR, checkedUrl = probeUrl,
-                        responseCode = responseCode,
-                        error = "Unexpected response: $responseCode"
-                    )
+                    else -> {
+                        conn.disconnect()
+                        return@probe CaptivePortalResult(
+                            status = PortalStatus.ERROR, checkedUrl = probeUrl,
+                            responseCode = responseCode,
+                            error = "Unexpected response: $responseCode"
+                        )
+                    }
                 }
-                conn.disconnect()
             }
             // Exceeded max redirects — likely portal loop
             val portalDomain = runCatching { URL(currentUrl).host }.getOrDefault("unknown")

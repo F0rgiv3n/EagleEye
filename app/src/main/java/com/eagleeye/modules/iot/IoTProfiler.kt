@@ -132,17 +132,21 @@ class IoTProfiler {
             conn.readTimeout    = 2000
             conn.instanceFollowRedirects = false
             conn.requestMethod = "HEAD"
-            val headers = buildString {
-                conn.headerFields.entries.take(20).forEach { (k, v) ->
-                    if (k != null) appendLine("$k: ${v.joinToString("; ")}")
+            try {
+                val headers = buildString {
+                    conn.headerFields.entries.take(20).forEach { (k, v) ->
+                        if (k != null) appendLine("$k: ${v.joinToString("; ")}")
+                    }
                 }
+                // Also try GET for title
+                val body = try {
+                    conn.requestMethod = "GET"
+                    conn.inputStream.bufferedReader().use { it.readText().take(300) }
+                } catch (_: Exception) { "" }
+                "$headers\n$body"
+            } finally {
+                conn.disconnect()
             }
-            // Also try GET for title
-            val body = try {
-                conn.requestMethod = "GET"
-                conn.inputStream.bufferedReader().use { it.readText().take(300) }
-            } catch (_: Exception) { "" }
-            "$headers\n$body"
         } catch (_: Exception) { "" }
     }
 

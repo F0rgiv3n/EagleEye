@@ -50,9 +50,12 @@ class WifiViewModel(application: Application) : AndroidViewModel(application) {
     fun startNetworkScan() {
         viewModelScope.launch(Dispatchers.IO) {
             _isScanning.value = true
-            val results = repository.getScanResults()
-            _scanResults.value = results
-            _isScanning.value = false
+            try {
+                _scanResults.value = repository.getScanResults()
+            } catch (_: Exception) {
+            } finally {
+                _isScanning.value = false
+            }
         }
     }
 }
