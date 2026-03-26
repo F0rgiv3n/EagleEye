@@ -3,6 +3,7 @@ package com.eagleeye.ui.screens
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,11 +18,14 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.asImageBitmap
+import com.eagleeye.data.SignalSample
 import com.eagleeye.data.SignalStrength
 import com.eagleeye.data.WifiConnectionInfo
 import com.eagleeye.modules.wifi.WifiViewModel
@@ -32,6 +36,7 @@ import com.eagleeye.ui.theme.*
 @Composable
 fun DashboardScreen(viewModel: WifiViewModel, toolsViewModel: ToolsViewModel) {
     val info by viewModel.connectionInfo.collectAsState()
+    val signalHistory by viewModel.signalHistory.collectAsState()
     var showGeoMap by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
 
@@ -113,6 +118,11 @@ fun DashboardScreen(viewModel: WifiViewModel, toolsViewModel: ToolsViewModel) {
                 if (info.dns2.isNotEmpty() && info.dns2 != "0.0.0.0") {
                     InfoRow(Icons.Default.Dns, "DNS Secondary", info.dns2)
                 }
+            }
+
+            // Signal history
+            if (signalHistory.size >= 3) {
+                SignalHistoryCard(history = signalHistory)
             }
 
             // Connection quality card
@@ -413,6 +423,93 @@ private fun WifiQrDialog(info: WifiConnectionInfo, onDismiss: () -> Unit) {
             }
         }
     )
+}
+
+@Composable
+private fun SignalHistoryCard(history: List<SignalSample>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceDark)
+            .border(1.dp, CardBorderDark, RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("SIGNAL HISTORY", style = MaterialTheme.typography.labelMedium, color = CyberGreen)
+            Text(
+                "${history.last().rssi} dBm",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextDim
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val minRssi = history.minOf { it.rssi }.toFloat()
+        val maxRssi = history.maxOf { it.rssi }.toFloat()
+        val range = (maxRssi - minRssi).coerceAtLeast(10f)
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            val w = size.width
+            val h = size.height
+            val step = if (history.size > 1) w / (history.size - 1) else w
+
+            // Fill path
+            val fillPath = Path().apply {
+                moveTo(0f, h)
+                history.forEachIndexed { i, sample ->
+                    val x = i * step
+                    val y = h - ((sample.rssi - minRssi) / range) * h
+                    if (i == 0) lineTo(x, y) else lineTo(x, y)
+                }
+                lineTo((history.size - 1) * step, h)
+                close()
+            }
+            drawPath(
+                fillPath,
+                brush = Brush.verticalGradient(
+                    listOf(CyberGreen.copy(alpha = 0.25f), CyberGreen.copy(alpha = 0.02f))
+                )
+            )
+
+            // Line path
+            val linePath = Path().apply {
+                history.forEachIndexed { i, sample ->
+                    val x = i * step
+                    val y = h - ((sample.rssi - minRssi) / range) * h
+                    if (i == 0) moveTo(x, y) else lineTo(x, y)
+                }
+            }
+            drawPath(linePath, color = CyberGreen, style = Stroke(width = 2.dp.toPx()))
+
+            // Current dot
+            val lastX = (history.size - 1) * step
+            val lastY = h - ((history.last().rssi - minRssi) / range) * h
+            drawCircle(CyberGreen, radius = 4.dp.toPx(), center = Offset(lastX, lastY))
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "${history.size} samples",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextDim
+            )
+            Text(
+                "min ${history.minOf { it.rssi }} / max ${history.maxOf { it.rssi }} dBm",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextDim
+            )
+        }
+    }
 }
 
 @Composable

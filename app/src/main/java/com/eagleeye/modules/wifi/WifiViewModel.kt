@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.eagleeye.data.ScannedNetwork
+import com.eagleeye.data.SignalSample
 import com.eagleeye.data.WifiConnectionInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,9 @@ class WifiViewModel(application: Application) : AndroidViewModel(application) {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    private val _signalHistory = MutableStateFlow<List<SignalSample>>(emptyList())
+    val signalHistory: StateFlow<List<SignalSample>> = _signalHistory.asStateFlow()
+
     init {
         startObservingConnection()
     }
@@ -32,6 +36,10 @@ class WifiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.observeConnectionInfo().collect { info ->
                 _connectionInfo.value = info
+                if (info.isConnected && info.rssi != 0) {
+                    _signalHistory.value = (_signalHistory.value +
+                        SignalSample(rssi = info.rssi, ssid = info.ssid)).takeLast(60)
+                }
             }
         }
     }

@@ -9,6 +9,7 @@ import com.eagleeye.modules.cve.CveRepository
 import com.eagleeye.modules.export.ReportExporter
 import com.eagleeye.modules.portal.CaptivePortalDetector
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -25,6 +26,12 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     private val shodanClient = ShodanClient()
     private val whoisClient = WhoisClient()
     private val rogueDhcpDetector = com.eagleeye.modules.security.RogueDhcpDetector(application)
+    private val speedTestClient = SpeedTestClient()
+    private val bandwidthMonitor = BandwidthMonitor()
+    private val mdnsDiscovery = MdnsDiscovery(application)
+    private val ifaceScanner = NetworkInterfaceScanner()
+    private val dnsBenchmark = DnsBenchmark()
+    private val firewallTester = FirewallTester()
 
     // ── Ping ──
     private val _pingResult = MutableStateFlow<PingResult?>(null)
@@ -249,6 +256,142 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             if (result.isNotEmpty()) {
                 _geoPoints.value = _geoPoints.value + result
             }
+        }
+    }
+
+    // ── Speed Test ──
+    private val _speedProgress = MutableStateFlow(SpeedTestProgress())
+    val speedProgress: StateFlow<SpeedTestProgress> = _speedProgress.asStateFlow()
+    private val _speedResult = MutableStateFlow<SpeedTestResult?>(null)
+    val speedResult: StateFlow<SpeedTestResult?> = _speedResult.asStateFlow()
+    private val _speedRunning = MutableStateFlow(false)
+    val speedRunning: StateFlow<Boolean> = _speedRunning.asStateFlow()
+
+    fun runSpeedTest() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _speedRunning.value = true
+            _speedResult.value = null
+            _speedProgress.value = SpeedTestProgress()
+            _speedResult.value = speedTestClient.runTest { progress ->
+                _speedProgress.value = progress
+            }
+            _speedRunning.value = false
+        }
+    }
+
+    // ── Bandwidth Monitor ──
+    private val _bandwidthSamples = MutableStateFlow<List<BandwidthSample>>(emptyList())
+    val bandwidthSamples: StateFlow<List<BandwidthSample>> = _bandwidthSamples.asStateFlow()
+    private val _bandwidthActive = MutableStateFlow(false)
+    val bandwidthActive: StateFlow<Boolean> = _bandwidthActive.asStateFlow()
+    private var bandwidthJob: Job? = null
+
+    fun startBandwidthMonitor() {
+        if (bandwidthJob?.isActive == true) return
+        _bandwidthActive.value = true
+        _bandwidthSamples.value = emptyList()
+        bandwidthJob = viewModelScope.launch {
+            bandwidthMonitor.observe().collect { sample ->
+                _bandwidthSamples.value = (_bandwidthSamples.value + sample).takeLast(60)
+            }
+        }
+    }
+
+    fun stopBandwidthMonitor() {
+        bandwidthJob?.cancel()
+        _bandwidthActive.value = false
+    }
+
+    // ── mDNS Discovery ──
+    private val _mdnsServices = MutableStateFlow<List<MdnsService>>(emptyList())
+    val mdnsServices: StateFlow<List<MdnsService>> = _mdnsServices.asStateFlow()
+    private val _mdnsRunning = MutableStateFlow(false)
+    val mdnsRunning: StateFlow<Boolean> = _mdnsRunning.asStateFlow()
+    private var mdnsJob: Job? = null
+
+    fun startMdnsDiscovery() {
+        if (mdnsJob?.isActive == true) return
+        _mdnsServices.value = emptyList()
+        _mdnsRunning.value = true
+        mdnsJob = viewModelScope.launch {
+            mdnsDiscovery.discover().collect { service ->
+                val existing = _mdnsServices.value
+                if (existing.none { it.name == service.name && it.type == service.type }) {
+                    _mdnsServices.value = existing + service
+                }
+            }
+        }
+    }
+
+    fun stopMdnsDiscovery() {
+        mdnsJob?.cancel()
+        _mdnsRunning.value = false
+    }
+
+    // ── Network Interfaces + ARP ──
+    private val _interfaces = MutableStateFlow<List<NetworkInterfaceInfo>>(emptyList())
+    val interfaces: StateFlow<List<NetworkInterfaceInfo>> = _interfaces.asStateFlow()
+    private val _arpEntries = MutableStateFlow<List<ArpCacheEntry>>(emptyList())
+    val arpEntries: StateFlow<List<ArpCacheEntry>> = _arpEntries.asStateFlow()
+    private val _interfacesRunning = MutableStateFlow(false)
+    val interfacesRunning: StateFlow<Boolean> = _interfacesRunning.asStateFlow()
+
+    fun refreshInterfaces() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _interfacesRunning.value = true
+            _interfaces.value = ifaceScanner.getInterfaces()
+            _arpEntries.value = ifaceScanner.getArpCache()
+            _interfacesRunning.value = false
+        }
+    }
+
+    // ── IPv6 Inspector ──
+    private val _ipv6Result = MutableStateFlow<IPv6InspectorResult?>(null)
+    val ipv6Result: StateFlow<IPv6InspectorResult?> = _ipv6Result.asStateFlow()
+    private val _ipv6Running = MutableStateFlow(false)
+    val ipv6Running: StateFlow<Boolean> = _ipv6Running.asStateFlow()
+
+    fun runIPv6Inspect() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _ipv6Running.value = true
+            _ipv6Result.value = null
+            _ipv6Result.value = ifaceScanner.inspectIPv6()
+            _ipv6Running.value = false
+        }
+    }
+
+    // ── DNS Benchmark ──
+    private val _dnsBenchResult = MutableStateFlow<DnsBenchmarkResult?>(null)
+    val dnsBenchResult: StateFlow<DnsBenchmarkResult?> = _dnsBenchResult.asStateFlow()
+    private val _dnsBenchRunning = MutableStateFlow(false)
+    val dnsBenchRunning: StateFlow<Boolean> = _dnsBenchRunning.asStateFlow()
+
+    fun runDnsBenchmark() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _dnsBenchRunning.value = true
+            _dnsBenchResult.value = null
+            _dnsBenchResult.value = dnsBenchmark.run()
+            _dnsBenchRunning.value = false
+        }
+    }
+
+    // ── Firewall Tester ──
+    private val _firewallResult = MutableStateFlow<FirewallTestResult?>(null)
+    val firewallResult: StateFlow<FirewallTestResult?> = _firewallResult.asStateFlow()
+    private val _firewallProgress = MutableStateFlow(0 to 0)
+    val firewallProgress: StateFlow<Pair<Int, Int>> = _firewallProgress.asStateFlow()
+    private val _firewallRunning = MutableStateFlow(false)
+    val firewallRunning: StateFlow<Boolean> = _firewallRunning.asStateFlow()
+
+    fun runFirewallTest() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _firewallRunning.value = true
+            _firewallResult.value = null
+            _firewallProgress.value = 0 to FirewallTester.TEST_PORTS.size
+            _firewallResult.value = firewallTester.run { done, total ->
+                _firewallProgress.value = done to total
+            }
+            _firewallRunning.value = false
         }
     }
 

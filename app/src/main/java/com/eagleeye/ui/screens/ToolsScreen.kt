@@ -31,7 +31,7 @@ import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.modules.bluetooth.BluetoothViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, WHOIS, DHCP, EXPORT }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, WHOIS, DHCP, EXPORT, SPEED_TEST, BANDWIDTH, MDNS, ARP, IPV6, DNS_BENCH, FIREWALL, INTERFACES }
 
 @Composable
 fun ToolsScreen(
@@ -88,6 +88,14 @@ fun ToolsScreen(
             Tool.WHOIS       -> WhoisTool(viewModel)
             Tool.DHCP        -> RogueDhcpTool(viewModel)
             Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
+            Tool.SPEED_TEST  -> SpeedTestTool(viewModel)
+            Tool.BANDWIDTH   -> BandwidthTool(viewModel)
+            Tool.MDNS        -> MdnsTool(viewModel)
+            Tool.ARP         -> ArpTool(viewModel)
+            Tool.IPV6        -> IPv6Tool(viewModel)
+            Tool.DNS_BENCH   -> DnsBenchTool(viewModel)
+            Tool.FIREWALL    -> FirewallTool(viewModel)
+            Tool.INTERFACES  -> InterfacesTool(viewModel)
         }
     }
 }
@@ -110,9 +118,17 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
         Tool.SHODAN to (Icons.Default.Radar to "Shodan"),
         Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan"),
-        Tool.WHOIS   to (Icons.Default.ManageSearch to "WHOIS"),
-        Tool.DHCP    to (Icons.Default.Router to "DHCP"),
-        Tool.EXPORT  to (Icons.Default.Share to "Export")
+        Tool.WHOIS       to (Icons.Default.ManageSearch to "WHOIS"),
+        Tool.DHCP        to (Icons.Default.Router to "DHCP"),
+        Tool.EXPORT      to (Icons.Default.Share to "Export"),
+        Tool.SPEED_TEST  to (Icons.Default.Speed to "Speed"),
+        Tool.BANDWIDTH   to (Icons.Default.ShowChart to "BW"),
+        Tool.MDNS        to (Icons.Default.Cast to "mDNS"),
+        Tool.ARP         to (Icons.Default.TableChart to "ARP"),
+        Tool.IPV6        to (Icons.Default.Lan to "IPv6"),
+        Tool.DNS_BENCH   to (Icons.Default.Timer to "DNS Bench"),
+        Tool.FIREWALL    to (Icons.Default.Fireplace to "Firewall"),
+        Tool.INTERFACES  to (Icons.Default.AccountTree to "Interfaces")
     )
     Row(
         modifier = Modifier
@@ -2301,6 +2317,661 @@ private fun ReportSection(icon: androidx.compose.ui.graphics.vector.ImageVector,
         }
         if (available) {
             Icon(Icons.Default.Check, null, tint = CyberGreen, modifier = Modifier.size(14.dp).padding(top = 2.dp))
+        }
+    }
+}
+
+// ── SPEED TEST ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SpeedTestTool(viewModel: ToolsViewModel) {
+    val progress by viewModel.speedProgress.collectAsState()
+    val result   by viewModel.speedResult.collectAsState()
+    val running  by viewModel.speedRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Measures download/upload speed and latency via Cloudflare.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+
+        Button(
+            onClick = { viewModel.runSpeedTest() },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CyberGreen.copy(alpha = 0.12f),
+                contentColor   = CyberGreen,
+                disabledContainerColor = SurfaceVariantDark,
+                disabledContentColor   = TextDim
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp, if (!running) CyberGreen.copy(alpha = 0.5f) else TextDim.copy(alpha = 0.2f)
+            ),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            if (running) {
+                CircularProgressIndicator(Modifier.size(14.dp), CyberGreen, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+            } else {
+                Icon(Icons.Default.Speed, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                when (progress.phase) {
+                    com.eagleeye.data.SpeedPhase.PINGING      -> "PINGING…"
+                    com.eagleeye.data.SpeedPhase.DOWNLOADING  -> "DOWNLOADING… ${"%.1f".format(progress.currentMbps)} Mbps"
+                    com.eagleeye.data.SpeedPhase.UPLOADING    -> "UPLOADING… ${"%.1f".format(progress.currentMbps)} Mbps"
+                    else -> "RUN SPEED TEST"
+                },
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (running && progress.phase != com.eagleeye.data.SpeedPhase.IDLE) {
+            LinearProgressIndicator(
+                progress = { progress.progress },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = CyberGreen, trackColor = SurfaceVariantDark
+            )
+        }
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(16.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+            } else {
+                // Big 3 stat boxes
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SpeedStatBox("DOWNLOAD", "${"%.1f".format(r.downloadMbps)}", "Mbps", CyberGreen, Modifier.weight(1f))
+                    SpeedStatBox("UPLOAD",   "${"%.1f".format(r.uploadMbps)}",   "Mbps", CyberBlue,  Modifier.weight(1f))
+                    SpeedStatBox("PING",     if (r.pingMs > 0) "${r.pingMs}" else "—", "ms", CyberYellow, Modifier.weight(1f))
+                }
+                ResultCard {
+                    DetailRow2("Server", r.server)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeedStatBox(label: String, value: String, unit: String, color: Color, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(color.copy(alpha = 0.08f))
+            .border(1.dp, color.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(value, style = MaterialTheme.typography.headlineSmall, color = color, fontWeight = FontWeight.Bold)
+        Text(unit,  style = MaterialTheme.typography.labelSmall,    color = color.copy(alpha = 0.7f))
+        Spacer(Modifier.height(2.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall,    color = TextDim)
+    }
+}
+
+// ── BANDWIDTH MONITOR ─────────────────────────────────────────────────────────
+
+@Composable
+private fun BandwidthTool(viewModel: ToolsViewModel) {
+    val samples by viewModel.bandwidthSamples.collectAsState()
+    val active  by viewModel.bandwidthActive.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Live RX/TX traffic monitor using Android TrafficStats.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+
+        Button(
+            onClick = { if (active) viewModel.stopBandwidthMonitor() else viewModel.startBandwidthMonitor() },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (active) CyberRed.copy(alpha = 0.1f) else CyberGreen.copy(alpha = 0.1f),
+                contentColor   = if (active) CyberRed else CyberGreen
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (active) CyberRed.copy(alpha = 0.4f) else CyberGreen.copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Icon(if (active) Icons.Default.Stop else Icons.Default.PlayArrow, null, Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (active) "STOP" else "START MONITOR", fontWeight = FontWeight.Bold)
+        }
+
+        if (samples.isNotEmpty()) {
+            val last = samples.last()
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BwStatBox("↓ RX", formatBytes(last.rxSpeed), CyberGreen, Modifier.weight(1f))
+                BwStatBox("↑ TX", formatBytes(last.txSpeed), CyberBlue,  Modifier.weight(1f))
+            }
+            BandwidthChart(samples)
+        }
+    }
+}
+
+@Composable
+private fun BwStatBox(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.08f))
+            .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = TextDim)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f), maxLines = 1)
+    }
+}
+
+@Composable
+private fun BandwidthChart(samples: List<com.eagleeye.data.BandwidthSample>) {
+    val maxRx = samples.maxOf { it.rxSpeed }.coerceAtLeast(1f)
+    val maxTx = samples.maxOf { it.txSpeed }.coerceAtLeast(1f)
+    val maxVal = maxOf(maxRx, maxTx)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(SurfaceDark)
+            .border(1.dp, CardBorderDark, RoundedCornerShape(10.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("RX/TX over time", style = MaterialTheme.typography.labelMedium, color = TextDim)
+            Text("peak ${formatBytes(maxVal)}/s", style = MaterialTheme.typography.labelSmall, color = TextDim)
+        }
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier.fillMaxWidth().height(80.dp)
+        ) {
+            val w = size.width
+            val h = size.height
+            if (samples.size < 2) return@Canvas
+            val step = w / (samples.size - 1)
+
+            fun drawLine(getValue: (com.eagleeye.data.BandwidthSample) -> Float, color: Color) {
+                val path = androidx.compose.ui.graphics.Path()
+                samples.forEachIndexed { i, s ->
+                    val x = i * step
+                    val y = h - (getValue(s) / maxVal) * h
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, color = color, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+            }
+
+            drawLine({ it.rxSpeed }, CyberGreen)
+            drawLine({ it.txSpeed }, CyberBlue)
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                androidx.compose.foundation.Canvas(Modifier.size(8.dp)) { drawCircle(CyberGreen) }
+                Text("Download", style = MaterialTheme.typography.labelSmall, color = TextDim)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                androidx.compose.foundation.Canvas(Modifier.size(8.dp)) { drawCircle(CyberBlue) }
+                Text("Upload", style = MaterialTheme.typography.labelSmall, color = TextDim)
+            }
+        }
+    }
+}
+
+private fun formatBytes(bytesPerSec: Float): String = when {
+    bytesPerSec >= 1_000_000f -> "${"%.1f".format(bytesPerSec / 1_000_000f)} MB/s"
+    bytesPerSec >= 1_000f     -> "${"%.0f".format(bytesPerSec / 1_000f)} KB/s"
+    else                      -> "${bytesPerSec.toInt()} B/s"
+}
+
+// ── MDNS / SERVICE DISCOVERY ──────────────────────────────────────────────────
+
+@Composable
+private fun MdnsTool(viewModel: ToolsViewModel) {
+    val services by viewModel.mdnsServices.collectAsState()
+    val running  by viewModel.mdnsRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Discovers services on the local network: Chromecast, printers, SSH, file shares, and more.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+        Button(
+            onClick = { if (running) viewModel.stopMdnsDiscovery() else viewModel.startMdnsDiscovery() },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (running) CyberRed.copy(alpha = 0.1f) else CyberGreen.copy(alpha = 0.1f),
+                contentColor   = if (running) CyberRed else CyberGreen
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (running) CyberRed.copy(alpha = 0.4f) else CyberGreen.copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (running) CircularProgressIndicator(Modifier.size(14.dp), CyberRed, strokeWidth = 2.dp)
+            else Icon(Icons.Default.Cast, null, Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (running) "DISCOVERING… (${services.size} found)" else "START DISCOVERY", fontWeight = FontWeight.Bold)
+        }
+
+        if (services.isEmpty() && !running) {
+            Text("No services found yet. Start discovery on a Wi-Fi network.",
+                style = MaterialTheme.typography.bodySmall, color = TextDim)
+        }
+
+        services.forEach { svc -> MdnsServiceCard(svc) }
+    }
+}
+
+@Composable
+private fun MdnsServiceCard(svc: com.eagleeye.data.MdnsService) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(SurfaceDark)
+            .border(1.dp, CardBorderDark, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(CyberBlue.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Cast, null, tint = CyberBlue, modifier = Modifier.size(16.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(svc.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(svc.friendlyType, style = MaterialTheme.typography.bodySmall, color = CyberBlue)
+            if (svc.ip.isNotBlank()) Text("${svc.ip}:${svc.port}", style = MaterialTheme.typography.labelSmall, color = TextDim)
+        }
+        Text(":${svc.port}", style = MaterialTheme.typography.labelMedium, color = CyberYellow)
+    }
+}
+
+// ── ARP CACHE ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ArpTool(viewModel: ToolsViewModel) {
+    val entries  by viewModel.arpEntries.collectAsState()
+    val running  by viewModel.interfacesRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("ARP cache from /proc/net/arp", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            OutlinedButton(
+                onClick = { viewModel.refreshInterfaces() },
+                enabled = !running,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberGreen),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CyberGreen.copy(alpha = 0.4f)),
+                shape = RoundedCornerShape(6.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                if (running) CircularProgressIndicator(Modifier.size(12.dp), CyberGreen, strokeWidth = 2.dp)
+                else Icon(Icons.Default.Refresh, null, Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Refresh", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        if (entries.isEmpty() && !running) {
+            Text("Tap Refresh to read ARP table.", style = MaterialTheme.typography.bodySmall, color = TextDim)
+        }
+
+        entries.forEach { entry ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(SurfaceDark)
+                    .border(1.dp, if (entry.isComplete) CardBorderDark else CyberOrange.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(entry.ip, style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Medium)
+                    Text(entry.mac, style = MaterialTheme.typography.labelSmall, color = TextDim,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(entry.iface, style = MaterialTheme.typography.labelSmall, color = CyberBlue)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(3.dp))
+                            .background((if (entry.isComplete) CyberGreen else CyberOrange).copy(alpha = 0.12f))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            if (entry.isComplete) "COMPLETE" else entry.flags,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (entry.isComplete) CyberGreen else CyberOrange
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── IPv6 INSPECTOR ────────────────────────────────────────────────────────────
+
+@Composable
+private fun IPv6Tool(viewModel: ToolsViewModel) {
+    val result  by viewModel.ipv6Result.collectAsState()
+    val running by viewModel.ipv6Running.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Inspects IPv6 addresses and tests connectivity.", style = MaterialTheme.typography.bodySmall, color = TextDim)
+
+        Button(
+            onClick = { viewModel.runIPv6Inspect() },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CyberBlue.copy(alpha = 0.1f), contentColor = CyberBlue,
+                disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (!running) CyberBlue.copy(alpha = 0.4f) else TextDim.copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (running) CircularProgressIndicator(Modifier.size(14.dp), CyberBlue, strokeWidth = 2.dp)
+            else Icon(Icons.Default.Lan, null, Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (running) "INSPECTING…" else "INSPECT IPv6", fontWeight = FontWeight.Bold)
+        }
+
+        if (running) LoadingCard("Testing IPv6 connectivity…")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(16.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+            } else {
+                val statusColor = when {
+                    r.hasConnectivity  -> CyberGreen
+                    r.hasGlobalAddress -> CyberYellow
+                    else               -> CyberOrange
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(statusColor.copy(alpha = 0.08f))
+                        .border(1.dp, statusColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        if (r.hasConnectivity) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        null, tint = statusColor, modifier = Modifier.size(16.dp)
+                    )
+                    Text(r.note, style = MaterialTheme.typography.bodySmall, color = statusColor)
+                }
+                ResultCard {
+                    if (r.globalAddress.isNotBlank()) DetailRow2("Global IPv6", r.globalAddress)
+                    if (r.linkLocalAddress.isNotBlank()) DetailRow2("Link-local", r.linkLocalAddress)
+                    DetailRow2("Connectivity", if (r.hasConnectivity) "Yes" else "No")
+                    DetailRow2("Addresses found", "${r.addresses.size}")
+                }
+                if (r.addresses.isNotEmpty()) {
+                    r.addresses.forEach { addr ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SurfaceDark)
+                                .border(1.dp, CardBorderDark, RoundedCornerShape(6.dp))
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(addr.address.take(32), style = MaterialTheme.typography.labelSmall, color = TextSecondary,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            Text(addr.type, style = MaterialTheme.typography.labelSmall, color = CyberBlue)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── DNS BENCHMARK ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun DnsBenchTool(viewModel: ToolsViewModel) {
+    val result  by viewModel.dnsBenchResult.collectAsState()
+    val running by viewModel.dnsBenchRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Benchmarks 6 public DNS resolvers with 5 UDP probes each.", style = MaterialTheme.typography.bodySmall, color = TextDim)
+
+        Button(
+            onClick = { viewModel.runDnsBenchmark() },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CyberYellow.copy(alpha = 0.1f), contentColor = CyberYellow,
+                disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (!running) CyberYellow.copy(alpha = 0.4f) else TextDim.copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (running) CircularProgressIndicator(Modifier.size(14.dp), CyberYellow, strokeWidth = 2.dp)
+            else Icon(Icons.Default.Timer, null, Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (running) "BENCHMARKING…" else "RUN BENCHMARK", fontWeight = FontWeight.Bold)
+        }
+
+        if (running) LoadingCard("Sending DNS probes to 6 servers…")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(16.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+            } else {
+                val maxAvg = r.results.filter { it.successRate > 0 }.maxOfOrNull { it.avgMs }?.toFloat()?.coerceAtLeast(1f) ?: 1f
+                Text("Fastest: ${r.fastest}", style = MaterialTheme.typography.labelMedium, color = CyberGreen)
+                r.results.forEach { dns ->
+                    val barColor = when (dns.rank) { 1 -> CyberGreen; 2 -> CyberBlue; else -> TextDim }
+                    val barFrac  = if (dns.successRate == 0) 0f else (dns.avgMs.toFloat() / maxAvg).coerceIn(0.05f, 1f)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceDark)
+                            .border(1.dp, if (dns.rank == 1) CyberGreen.copy(alpha = 0.4f) else CardBorderDark, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("#${dns.rank}", style = MaterialTheme.typography.labelMedium, color = barColor,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(dns.name, style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.Medium)
+                                Text(
+                                    if (dns.successRate == 0) "TIMEOUT" else "${dns.avgMs}ms avg",
+                                    style = MaterialTheme.typography.bodySmall, color = barColor
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { barFrac },
+                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                color = barColor, trackColor = SurfaceVariantDark
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(dns.server, style = MaterialTheme.typography.labelSmall, color = TextDim)
+                                Text("${dns.successRate}% ok · min ${dns.minMs}ms", style = MaterialTheme.typography.labelSmall, color = TextDim)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── FIREWALL TESTER ───────────────────────────────────────────────────────────
+
+@Composable
+private fun FirewallTool(viewModel: ToolsViewModel) {
+    val result   by viewModel.firewallResult.collectAsState()
+    val progress by viewModel.firewallProgress.collectAsState()
+    val running  by viewModel.firewallRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Tests if common ports are blocked by your ISP or router (via portquiz.net).",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+        Button(
+            onClick = { viewModel.runFirewallTest() },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CyberOrange.copy(alpha = 0.1f), contentColor = CyberOrange,
+                disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (!running) CyberOrange.copy(alpha = 0.4f) else TextDim.copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (running) CircularProgressIndicator(Modifier.size(14.dp), CyberOrange, strokeWidth = 2.dp)
+            else Icon(Icons.Default.Fireplace, null, Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                if (running) "TESTING ${progress.first}/${progress.second}…" else "TEST PORTS",
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (running && progress.second > 0) {
+            LinearProgressIndicator(
+                progress = { progress.first.toFloat() / progress.second },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color = CyberOrange, trackColor = SurfaceVariantDark
+            )
+        }
+
+        result?.let { r ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SpeedStatBox("OPEN",    "${r.openCount}",    "ports", CyberGreen,  Modifier.weight(1f))
+                SpeedStatBox("BLOCKED", "${r.blockedCount}", "ports", CyberRed,    Modifier.weight(1f))
+                SpeedStatBox("TESTED",  "${r.results.size}", "total", TextSecondary, Modifier.weight(1f))
+            }
+            r.results.chunked(3).forEach { rowItems ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    rowItems.forEach { p ->
+                        val color = if (p.isOpen) CyberGreen else CyberRed
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(color.copy(alpha = 0.07f))
+                                .border(1.dp, color.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("${p.port}", style = MaterialTheme.typography.bodySmall, color = color, fontWeight = FontWeight.Bold)
+                            Text(p.service, style = MaterialTheme.typography.labelSmall, color = TextDim, maxLines = 1)
+                            Text(if (p.isOpen) "${p.latencyMs}ms" else "blocked",
+                                style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.7f))
+                        }
+                    }
+                    // fill empty slots
+                    repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+}
+
+// ── NETWORK INTERFACES ────────────────────────────────────────────────────────
+
+@Composable
+private fun InterfacesTool(viewModel: ToolsViewModel) {
+    val interfaces by viewModel.interfaces.collectAsState()
+    val running    by viewModel.interfacesRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("All active network interfaces.", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            OutlinedButton(
+                onClick = { viewModel.refreshInterfaces() },
+                enabled = !running,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberGreen),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CyberGreen.copy(alpha = 0.4f)),
+                shape = RoundedCornerShape(6.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                if (running) CircularProgressIndicator(Modifier.size(12.dp), CyberGreen, strokeWidth = 2.dp)
+                else Icon(Icons.Default.Refresh, null, Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Refresh", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        if (interfaces.isEmpty() && !running) {
+            Text("Tap Refresh to list interfaces.", style = MaterialTheme.typography.bodySmall, color = TextDim)
+        }
+
+        interfaces.forEach { iface ->
+            val typeColor = when (iface.type) {
+                "Wi-Fi"    -> CyberGreen
+                "Cellular" -> CyberBlue
+                "VPN"      -> CyberYellow
+                "Ethernet" -> CyberBlue
+                "Loopback" -> TextDim
+                else       -> TextSecondary
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (iface.isUp) SurfaceDark else SurfaceDark.copy(alpha = 0.5f))
+                    .border(1.dp, if (iface.isUp) typeColor.copy(alpha = 0.3f) else CardBorderDark, RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(iface.friendlyName, style = MaterialTheme.typography.bodyMedium, color = if (iface.isUp) TextPrimary else TextDim, fontWeight = FontWeight.Medium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(iface.type, style = MaterialTheme.typography.labelSmall, color = typeColor,
+                            modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(typeColor.copy(alpha = 0.1f)).padding(horizontal = 5.dp, vertical = 2.dp))
+                        Text(if (iface.isUp) "UP" else "DOWN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (iface.isUp) CyberGreen else CyberRed,
+                            modifier = Modifier.clip(RoundedCornerShape(3.dp))
+                                .background((if (iface.isUp) CyberGreen else CyberRed).copy(alpha = 0.1f))
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                if (iface.ipv4.isNotBlank()) DetailRow2("IPv4", iface.ipv4)
+                if (iface.ipv6.isNotBlank()) DetailRow2("IPv6", iface.ipv6.take(36))
+                if (iface.mac.isNotBlank()) DetailRow2("MAC", iface.mac)
+                if (iface.mtu > 0) DetailRow2("MTU", "${iface.mtu} bytes")
+            }
         }
     }
 }
