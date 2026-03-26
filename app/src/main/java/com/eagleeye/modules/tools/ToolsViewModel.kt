@@ -184,6 +184,38 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getServiceName(port: Int) = tools.getServiceName(port)
 
+    // ── GeoIP Map ──
+    private val geoClient = GeoIpClient()
+    private val _geoHome = MutableStateFlow<com.eagleeye.data.GeoPoint?>(null)
+    val geoHome: StateFlow<com.eagleeye.data.GeoPoint?> = _geoHome.asStateFlow()
+    private val _geoPoints = MutableStateFlow<List<com.eagleeye.data.GeoPoint>>(emptyList())
+    val geoPoints: StateFlow<List<com.eagleeye.data.GeoPoint>> = _geoPoints.asStateFlow()
+    private val _geoRunning = MutableStateFlow(false)
+    val geoRunning: StateFlow<Boolean> = _geoRunning.asStateFlow()
+
+    fun loadGeoMap(extraIps: List<String> = emptyList()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _geoRunning.value = true
+            val home = geoClient.resolveHome()
+            _geoHome.value = home
+            val defaultIps = listOf("8.8.8.8", "1.1.1.1", "9.9.9.9", "208.67.222.222") + extraIps
+            val toResolve = defaultIps.distinct().filter { it != home?.ip }
+            _geoPoints.value = geoClient.resolveIps(toResolve)
+            _geoRunning.value = false
+        }
+    }
+
+    fun addGeoIp(ip: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val existing = _geoPoints.value.map { it.ip }.toSet()
+            if (ip in existing || ip == _geoHome.value?.ip) return@launch
+            val result = geoClient.resolveIps(listOf(ip))
+            if (result.isNotEmpty()) {
+                _geoPoints.value = _geoPoints.value + result
+            }
+        }
+    }
+
     // ── Captive Portal ──
     private val _portalResult = MutableStateFlow<CaptivePortalResult?>(null)
     val portalResult: StateFlow<CaptivePortalResult?> = _portalResult.asStateFlow()

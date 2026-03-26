@@ -2,6 +2,7 @@ package com.eagleeye.ui.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,11 +24,18 @@ import androidx.compose.ui.unit.sp
 import com.eagleeye.data.SignalStrength
 import com.eagleeye.data.WifiConnectionInfo
 import com.eagleeye.modules.wifi.WifiViewModel
+import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.ui.theme.*
 
 @Composable
-fun DashboardScreen(viewModel: WifiViewModel) {
+fun DashboardScreen(viewModel: WifiViewModel, toolsViewModel: ToolsViewModel) {
     val info by viewModel.connectionInfo.collectAsState()
+    var showGeoMap by remember { mutableStateOf(false) }
+
+    if (showGeoMap) {
+        GeoMapScreen(toolsViewModel = toolsViewModel, onBack = { showGeoMap = false })
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -55,7 +63,21 @@ fun DashboardScreen(viewModel: WifiViewModel) {
                     color = TextDim
                 )
             }
-            ConnectionStatusBadge(isConnected = info.isConnected)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { showGeoMap = true },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(CyberBlue.copy(alpha = 0.10f))
+                        .border(BorderStroke(1.dp, CyberBlue.copy(alpha = 0.30f)), RoundedCornerShape(8.dp))
+                ) {
+                    Icon(Icons.Default.Map, contentDescription = "GeoMap", tint = CyberBlue)
+                }
+                ConnectionStatusBadge(isConnected = info.isConnected)
+            }
         }
 
         Spacer(modifier = Modifier.height(4.dp))

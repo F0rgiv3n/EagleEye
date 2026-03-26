@@ -145,7 +145,7 @@ fun EagleEyeApp() {
                     .padding(padding)
             ) {
                 when (currentScreen) {
-                    Screen.Dashboard -> DashboardScreen(wifiViewModel)
+                    Screen.Dashboard -> DashboardScreen(wifiViewModel, toolsViewModel)
                     Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
                     Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel, wifiViewModel)
                     Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
