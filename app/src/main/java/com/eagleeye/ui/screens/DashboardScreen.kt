@@ -21,9 +21,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.asImageBitmap
 import com.eagleeye.data.SignalStrength
 import com.eagleeye.data.WifiConnectionInfo
 import com.eagleeye.modules.wifi.WifiViewModel
+import com.eagleeye.modules.wifi.WifiQrGenerator
 import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.ui.theme.*
 
@@ -31,10 +33,15 @@ import com.eagleeye.ui.theme.*
 fun DashboardScreen(viewModel: WifiViewModel, toolsViewModel: ToolsViewModel) {
     val info by viewModel.connectionInfo.collectAsState()
     var showGeoMap by remember { mutableStateOf(false) }
+    var showQr by remember { mutableStateOf(false) }
 
     if (showGeoMap) {
         GeoMapScreen(toolsViewModel = toolsViewModel, onBack = { showGeoMap = false })
         return
+    }
+
+    if (showQr && info.isConnected) {
+        WifiQrDialog(info = info, onDismiss = { showQr = false })
     }
 
     Column(
@@ -67,6 +74,17 @@ fun DashboardScreen(viewModel: WifiViewModel, toolsViewModel: ToolsViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (info.isConnected) {
+                    IconButton(
+                        onClick = { showQr = true },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CyberGreen.copy(alpha = 0.10f))
+                            .border(BorderStroke(1.dp, CyberGreen.copy(alpha = 0.30f)), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(Icons.Default.QrCode, contentDescription = "QR Code", tint = CyberGreen)
+                    }
+                }
                 IconButton(
                     onClick = { showGeoMap = true },
                     modifier = Modifier
@@ -305,6 +323,96 @@ private fun ConnectionStatusBadge(isConnected: Boolean) {
             color = color
         )
     }
+}
+
+// ── Wi-Fi QR Dialog ───────────────────────────────────────────────────────────
+
+@Composable
+private fun WifiQrDialog(info: WifiConnectionInfo, onDismiss: () -> Unit) {
+    var password by remember { mutableStateOf("") }
+    val qrBitmap = remember(password, info.ssid, info.securityType) {
+        runCatching { WifiQrGenerator.generate(info.ssid, password, info.securityType) }.getOrNull()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceDark,
+        shape = RoundedCornerShape(16.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.QrCode, null, tint = CyberGreen, modifier = Modifier.size(20.dp))
+                Text("Wi-Fi QR Code", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            }
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // QR preview
+                qrBitmap?.let { bmp ->
+                    Box(
+                        modifier = Modifier
+                            .size(220.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(androidx.compose.ui.graphics.Color.White)
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.foundation.Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = "Wi-Fi QR Code",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+
+                // Network info
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceVariantDark)
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(info.ssid, style = MaterialTheme.typography.bodyMedium,
+                        color = CyberGreen, fontWeight = FontWeight.Bold)
+                    Text(info.securityType.ifBlank { "Open" },
+                        style = MaterialTheme.typography.bodySmall, color = TextDim)
+                }
+
+                // Password input
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password (optional)", style = MaterialTheme.typography.bodySmall) },
+                    placeholder = { Text("Enter to include in QR", style = MaterialTheme.typography.bodySmall) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberGreen.copy(alpha = 0.6f),
+                        unfocusedBorderColor = CardBorderDark,
+                        focusedLabelColor = CyberGreen,
+                        unfocusedLabelColor = TextDim,
+                        cursorColor = CyberGreen,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                Text(
+                    "Android can't read the saved password. Enter it to create a full QR.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextDim
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = CyberGreen, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
 
 @Composable

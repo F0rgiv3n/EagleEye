@@ -31,7 +31,7 @@ import com.eagleeye.modules.packet.PacketViewModel
 import com.eagleeye.modules.bluetooth.BluetoothViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, EXPORT }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, WHOIS, DHCP, EXPORT }
 
 @Composable
 fun ToolsScreen(
@@ -85,6 +85,8 @@ fun ToolsScreen(
             Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
             Tool.SHODAN      -> ShodanTool(viewModel)
             Tool.BT_SCAN     -> BtScanTool(btViewModel)
+            Tool.WHOIS       -> WhoisTool(viewModel)
+            Tool.DHCP        -> RogueDhcpTool(viewModel)
             Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
         }
     }
@@ -108,6 +110,8 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
         Tool.SHODAN to (Icons.Default.Radar to "Shodan"),
         Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan"),
+        Tool.WHOIS   to (Icons.Default.ManageSearch to "WHOIS"),
+        Tool.DHCP    to (Icons.Default.Router to "DHCP"),
         Tool.EXPORT  to (Icons.Default.Share to "Export")
     )
     Row(
@@ -1893,6 +1897,188 @@ private fun BtDeviceCard(device: com.eagleeye.data.BtDevice) {
                 } else null
                 if (distance != null) {
                     DetailRow2("Est. Distance", "~${"%.1f".format(distance)}m")
+                }
+            }
+        }
+    }
+}
+
+// ── WHOIS + Reverse DNS ───────────────────────────────────────────────────────
+
+@Composable
+private fun WhoisTool(viewModel: ToolsViewModel) {
+    val result by viewModel.whoisResult.collectAsState()
+    val running by viewModel.whoisRunning.collectAsState()
+    var query by remember { mutableStateOf("") }
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ToolInputRow(
+            value = query, onValueChange = { query = it },
+            label = "Domain or IP",
+            placeholder = "example.com or 8.8.8.8",
+            running = running,
+            onRun = { kb?.hide(); viewModel.runWhois(query.trim()) },
+            runLabel = "LOOKUP"
+        )
+
+        result?.let { r ->
+            if (r.error != null) {
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    .background(CyberRed.copy(alpha = 0.08f)).border(1.dp, CyberRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    .padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                    Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                }
+                return@let
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(SurfaceDark).border(1.dp, CardBorderDark, RoundedCornerShape(10.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(r.query, style = MaterialTheme.typography.titleSmall,
+                    color = CyberGreen, fontWeight = FontWeight.Bold)
+                HorizontalDivider(color = CardBorderDark)
+
+                if (r.reverseDns.isNotBlank() && r.reverseDns != "—")
+                    WhoisRow("Reverse DNS", r.reverseDns, CyberBlue)
+                if (r.org.isNotBlank())     WhoisRow("Organisation", r.org)
+                if (r.country.isNotBlank()) WhoisRow("Country", r.country)
+                if (r.netblock.isNotBlank()) WhoisRow("Netblock", r.netblock)
+                if (!r.isIpLookup) {
+                    if (r.registrar.isNotBlank()) WhoisRow("Registrar", r.registrar)
+                    if (r.created.isNotBlank())   WhoisRow("Created", r.created)
+                    if (r.updated.isNotBlank())   WhoisRow("Updated", r.updated)
+                    r.nameServer.forEachIndexed { i, ns ->
+                        WhoisRow("NS ${i + 1}", ns, TextDim)
+                    }
+                }
+
+                // Raw WHOIS toggle
+                var showRaw by remember { mutableStateOf(false) }
+                TextButton(onClick = { showRaw = !showRaw }, contentPadding = PaddingValues(0.dp)) {
+                    Text(if (showRaw) "Hide raw" else "Show raw WHOIS",
+                        style = MaterialTheme.typography.bodySmall, color = TextDim)
+                }
+                if (showRaw) {
+                    Text(
+                        r.raw.lines().filter { !it.startsWith("%") && it.isNotBlank() }
+                            .take(40).joinToString("\n"),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace),
+                        color = TextDim,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
+                            .background(SurfaceVariantDark).padding(8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WhoisRow(label: String, value: String, valueColor: Color = TextPrimary) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = TextDim,
+            modifier = Modifier.weight(0.4f))
+        Text(value.take(60), style = MaterialTheme.typography.bodySmall, color = valueColor,
+            modifier = Modifier.weight(0.6f), fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Rogue DHCP Detector ───────────────────────────────────────────────────────
+
+@Composable
+private fun RogueDhcpTool(viewModel: ToolsViewModel) {
+    val result  by viewModel.rogueDhcpResult.collectAsState()
+    val running by viewModel.rogueDhcpRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Description
+        Text("Scans for rogue DHCP servers and suspicious gateway mismatches on your LAN.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim)
+
+        Button(
+            onClick = { viewModel.runRogueDhcpScan() },
+            enabled = !running,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CyberOrange.copy(alpha = 0.15f), contentColor = CyberOrange,
+                disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+            ),
+            border = BorderStroke(1.dp, if (!running) CyberOrange.copy(alpha = 0.5f) else TextDim.copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()
+        ) {
+            if (running) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = CyberOrange, strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("SCANNING SUBNET...")
+            } else {
+                Icon(Icons.Default.Router, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("SCAN FOR ROGUE DHCP", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        result?.let { r ->
+            if (r.error != null) {
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    .background(CyberRed.copy(alpha = 0.08f)).border(1.dp, CyberRed.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    .padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(14.dp))
+                    Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                }
+                return@let
+            }
+
+            // Status banner
+            val (bannerColor, bannerIcon, bannerText) = if (r.isClean)
+                Triple(CyberGreen, Icons.Default.CheckCircle, "No rogue DHCP servers detected")
+            else Triple(CyberRed, Icons.Default.Warning, "${r.findings.size} suspicious finding${if (r.findings.size != 1) "s" else ""} detected")
+
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    .background(bannerColor.copy(alpha = 0.08f))
+                    .border(1.dp, bannerColor.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(bannerIcon, null, tint = bannerColor, modifier = Modifier.size(18.dp))
+                Text(bannerText, style = MaterialTheme.typography.bodyMedium, color = bannerColor,
+                    fontWeight = FontWeight.Bold)
+            }
+
+            // Network info
+            Column(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(SurfaceDark).border(1.dp, CardBorderDark, RoundedCornerShape(10.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                WhoisRow("Gateway", r.knownGateway + if (r.gatewayHostname.isNotBlank()) " (${r.gatewayHostname})" else "")
+                WhoisRow("DHCP Server", r.dhcpServer,
+                    if (r.serverGatewayMismatch) CyberOrange else CyberGreen)
+                if (r.suspiciousServers.isNotEmpty())
+                    WhoisRow("Suspicious IPs", r.suspiciousServers.joinToString(", "), CyberRed)
+            }
+
+            // Findings
+            if (r.findings.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    r.findings.forEach { finding ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                .background(CyberRed.copy(alpha = 0.06f))
+                                .border(1.dp, CyberRed.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, tint = CyberRed, modifier = Modifier.size(14.dp).padding(top = 2.dp))
+                            Text(finding, style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                        }
+                    }
                 }
             }
         }

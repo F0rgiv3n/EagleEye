@@ -23,6 +23,8 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     private val headersAnalyzer = HttpHeadersAnalyzer()
     private val threatIntelClient = ThreatIntelClient()
     private val shodanClient = ShodanClient()
+    private val whoisClient = WhoisClient()
+    private val rogueDhcpDetector = com.eagleeye.modules.security.RogueDhcpDetector(application)
 
     // ── Ping ──
     private val _pingResult = MutableStateFlow<PingResult?>(null)
@@ -206,6 +208,36 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             val toResolve = defaultIps.distinct().filter { it != home?.ip }
             _geoPoints.value = geoClient.resolveIps(toResolve)
             _geoRunning.value = false
+        }
+    }
+
+    // ── WHOIS ──
+    private val _whoisResult = MutableStateFlow<com.eagleeye.data.WhoisResult?>(null)
+    val whoisResult: StateFlow<com.eagleeye.data.WhoisResult?> = _whoisResult.asStateFlow()
+    private val _whoisRunning = MutableStateFlow(false)
+    val whoisRunning: StateFlow<Boolean> = _whoisRunning.asStateFlow()
+
+    fun runWhois(query: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _whoisRunning.value = true
+            _whoisResult.value = null
+            _whoisResult.value = whoisClient.lookup(query)
+            _whoisRunning.value = false
+        }
+    }
+
+    // ── Rogue DHCP ──
+    private val _rogueDhcpResult = MutableStateFlow<com.eagleeye.data.RogueDhcpResult?>(null)
+    val rogueDhcpResult: StateFlow<com.eagleeye.data.RogueDhcpResult?> = _rogueDhcpResult.asStateFlow()
+    private val _rogueDhcpRunning = MutableStateFlow(false)
+    val rogueDhcpRunning: StateFlow<Boolean> = _rogueDhcpRunning.asStateFlow()
+
+    fun runRogueDhcpScan() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _rogueDhcpRunning.value = true
+            _rogueDhcpResult.value = null
+            _rogueDhcpResult.value = rogueDhcpDetector.detect()
+            _rogueDhcpRunning.value = false
         }
     }
 

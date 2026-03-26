@@ -51,3 +51,33 @@ data class PublicIpInfo(
     val localIp: String,
     val gateway: String
 )
+
+// ── WHOIS / Reverse DNS ───────────────────────────────────────────────────────
+
+data class WhoisResult(
+    val query: String,
+    val reverseDns: String = "",
+    val org: String = "",
+    val country: String = "",
+    val netblock: String = "",
+    val registrar: String = "",
+    val created: String = "",
+    val updated: String = "",
+    val nameServer: List<String> = emptyList(),
+    val raw: String = "",
+    val isIpLookup: Boolean = false,
+    val error: String? = null
+)
+
+// ── Rogue DHCP ────────────────────────────────────────────────────────────────
+
+data class RogueDhcpResult(
+    val knownGateway: String,
+    val dhcpServer: String,
+    val gatewayHostname: String = "",
+    val suspiciousServers: List<String> = emptyList(),
+    val serverGatewayMismatch: Boolean = false,
+    val findings: List<String> = emptyList(),
+    val isClean: Boolean = true,
+    val error: String? = null
+)
