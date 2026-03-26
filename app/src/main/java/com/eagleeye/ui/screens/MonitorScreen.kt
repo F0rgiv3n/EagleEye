@@ -497,13 +497,16 @@ private fun ActivityChart(events: List<NetworkEvent>) {
 
     // 7 bars: index 0 = 6 days ago, index 6 = today
     data class Bar(val label: String, val count: Int, val worstSev: Int)
-    val bars = (6 downTo 0).map { daysAgo ->
-        val start = now - (daysAgo + 1) * dayMs
-        val end   = now - daysAgo * dayMs
-        val dayEvents = events.filter { it.timestamp in start until end && it.type != EventType.SCAN_COMPLETE }
-        val worstSev = dayEvents.maxOfOrNull { it.severity.ordinal } ?: -1
-        val cal = Calendar.getInstance().apply { timeInMillis = end - 1 }
-        Bar(SimpleDateFormat("EEE", Locale.getDefault()).format(cal.time).take(3).uppercase(), dayEvents.size, worstSev)
+    val sdfWeekBar = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
+    val bars = remember(events) {
+        (6 downTo 0).map { daysAgo ->
+            val start = now - (daysAgo + 1) * dayMs
+            val end   = now - daysAgo * dayMs
+            val dayEvents = events.filter { it.timestamp in start until end && it.type != EventType.SCAN_COMPLETE }
+            val worstSev = dayEvents.maxOfOrNull { it.severity.ordinal } ?: -1
+            val cal = Calendar.getInstance().apply { timeInMillis = end - 1 }
+            Bar(sdfWeekBar.format(cal.time).take(3).uppercase(), dayEvents.size, worstSev)
+        }
     }
     val maxCount = bars.maxOf { it.count }.coerceAtLeast(1)
 
@@ -599,6 +602,9 @@ private fun DayHeader(label: String) {
     }
 }
 
+private val sdfDayLabel = SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
+private val sdfEventTime = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+
 private fun dayLabel(ts: Long): String {
     val now = Calendar.getInstance()
     val cal = Calendar.getInstance().apply { timeInMillis = ts }
@@ -607,7 +613,7 @@ private fun dayLabel(ts: Long): String {
     return when {
         sameYear && diffDays == 0 -> "TODAY"
         sameYear && diffDays == 1 -> "YESTERDAY"
-        else -> SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date(ts)).uppercase()
+        else -> sdfDayLabel.format(Date(ts)).uppercase()
     }
 }
 
@@ -618,7 +624,7 @@ private fun formatEventTime(ts: Long): String {
         diff < 60_000L     -> "just now"
         diff < 3_600_000L  -> "${diff / 60_000}m ago"
         diff < 86_400_000L -> "${diff / 3_600_000}h ago"
-        else -> SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(ts))
+        else -> sdfEventTime.format(Date(ts))
     }
 }
 

@@ -1,8 +1,15 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.eagleeye.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -57,47 +64,54 @@ fun ToolsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundDark)
-            .padding(16.dp)
     ) {
-        Text("NETWORK TOOLS", style = MaterialTheme.typography.headlineMedium, color = CyberGreen)
-        Text("Diagnostics & analysis utilities", style = MaterialTheme.typography.bodySmall, color = TextDim)
+        // Fixed header — does not scroll away
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+            Text("NETWORK TOOLS", style = MaterialTheme.typography.headlineMedium, color = CyberGreen)
+            Text("Diagnostics & analysis utilities", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            Spacer(modifier = Modifier.height(12.dp))
+            ToolTabRow(selected = selectedTool, onSelect = { selectedTool = it })
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Tool selector tabs
-        ToolTabRow(selected = selectedTool, onSelect = { selectedTool = it })
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        when (selectedTool) {
-            Tool.PING        -> PingTool(viewModel)
-            Tool.TRACEROUTE  -> TracerouteTool(viewModel)
-            Tool.PORT_SCAN   -> PortScanTool(viewModel)
-            Tool.DNS         -> DnsTool(viewModel)
-            Tool.PUBLIC_IP   -> PublicIpTool(viewModel)
-            Tool.WAKE_ON_LAN -> WakeOnLanTool(viewModel)
-            Tool.SSL         -> SslTool(viewModel)
-            Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
-            Tool.CVE         -> CveTool(viewModel)
-            Tool.PORTAL      -> CaptivePortalTool(viewModel)
-            Tool.PACKETS     -> packetViewModel?.let { PacketAnalyzerTool(it) }
-            Tool.HEADERS     -> HeadersTool(viewModel)
-            Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
-            Tool.SHODAN      -> ShodanTool(viewModel)
-            Tool.BT_SCAN     -> BtScanTool(btViewModel)
-            Tool.WHOIS       -> WhoisTool(viewModel)
-            Tool.DHCP        -> RogueDhcpTool(viewModel)
-            Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
-            Tool.SPEED_TEST  -> SpeedTestTool(viewModel)
-            Tool.BANDWIDTH   -> BandwidthTool(viewModel)
-            Tool.MDNS        -> MdnsTool(viewModel)
-            Tool.ARP         -> ArpTool(viewModel)
-            Tool.IPV6        -> IPv6Tool(viewModel)
-            Tool.DNS_BENCH   -> DnsBenchTool(viewModel)
-            Tool.FIREWALL    -> FirewallTool(viewModel)
-            Tool.INTERFACES  -> InterfacesTool(viewModel)
-            Tool.HTTP_CLIENT -> HttpClientTool(viewModel)
-            Tool.CERT_TRANS  -> CertTransTool(viewModel)
+        // Scrollable tool content area
+        val scrollState = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+        ) {
+            when (selectedTool) {
+                Tool.PING        -> PingTool(viewModel)
+                Tool.TRACEROUTE  -> TracerouteTool(viewModel)
+                Tool.PORT_SCAN   -> PortScanTool(viewModel)
+                Tool.DNS         -> DnsTool(viewModel)
+                Tool.PUBLIC_IP   -> PublicIpTool(viewModel)
+                Tool.WAKE_ON_LAN -> WakeOnLanTool(viewModel)
+                Tool.SSL         -> SslTool(viewModel)
+                Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
+                Tool.CVE         -> CveTool(viewModel)
+                Tool.PORTAL      -> CaptivePortalTool(viewModel)
+                Tool.PACKETS     -> packetViewModel?.let { PacketAnalyzerTool(it) }
+                Tool.HEADERS     -> HeadersTool(viewModel)
+                Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
+                Tool.SHODAN      -> ShodanTool(viewModel)
+                Tool.BT_SCAN     -> BtScanTool(btViewModel)
+                Tool.WHOIS       -> WhoisTool(viewModel)
+                Tool.DHCP        -> RogueDhcpTool(viewModel)
+                Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
+                Tool.SPEED_TEST  -> SpeedTestTool(viewModel)
+                Tool.BANDWIDTH   -> BandwidthTool(viewModel)
+                Tool.MDNS        -> MdnsTool(viewModel)
+                Tool.ARP         -> ArpTool(viewModel)
+                Tool.IPV6        -> IPv6Tool(viewModel)
+                Tool.DNS_BENCH   -> DnsBenchTool(viewModel)
+                Tool.FIREWALL    -> FirewallTool(viewModel)
+                Tool.INTERFACES  -> InterfacesTool(viewModel)
+                Tool.HTTP_CLIENT -> HttpClientTool(viewModel)
+                Tool.CERT_TRANS  -> CertTransTool(viewModel)
+            }
         }
     }
 }
@@ -693,8 +707,19 @@ private fun StatBox(label: String, value: String, color: Color, modifier: Modifi
 
 @Composable
 private fun DetailRow2(label: String, value: String) {
+    val context = LocalContext.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText(label, value))
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied: $label", Toast.LENGTH_SHORT).show()
+                }
+            ),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = TextDim)

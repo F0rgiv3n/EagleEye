@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 class WifiViewModel(application: Application) : AndroidViewModel(application) {
@@ -34,13 +35,15 @@ class WifiViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startObservingConnection() {
         viewModelScope.launch {
-            repository.observeConnectionInfo().collect { info ->
-                _connectionInfo.value = info
-                if (info.isConnected && info.rssi != 0) {
-                    _signalHistory.value = (_signalHistory.value +
-                        SignalSample(rssi = info.rssi, ssid = info.ssid)).takeLast(60)
+            repository.observeConnectionInfo()
+                .distinctUntilChanged()
+                .collect { info ->
+                    _connectionInfo.value = info
+                    if (info.isConnected && info.rssi != 0) {
+                        _signalHistory.value = (_signalHistory.value +
+                            SignalSample(rssi = info.rssi, ssid = info.ssid)).takeLast(60)
+                    }
                 }
-            }
         }
     }
 

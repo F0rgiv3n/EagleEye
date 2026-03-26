@@ -1,8 +1,16 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.eagleeye.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -165,10 +173,19 @@ private fun NetworkItem(network: ScannedNetwork, isCurrentNetwork: Boolean) {
                         )
                     }
                 }
+                val ctx = LocalContext.current
                 Text(
                     text = "${network.bssid}  •  Ch ${network.channel}  •  ${network.band}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextDim
+                    color = TextDim,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cm.setPrimaryClip(ClipData.newPlainText("BSSID", network.bssid))
+                            if (Build.VERSION.SDK_INT < 33) Toast.makeText(ctx, "Copied BSSID", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 )
             }
         }

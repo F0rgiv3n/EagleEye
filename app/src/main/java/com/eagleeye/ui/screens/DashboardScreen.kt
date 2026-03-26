@@ -1,8 +1,15 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.eagleeye.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -277,8 +284,19 @@ private fun InfoCard(title: String, content: @Composable ColumnScope.() -> Unit)
 
 @Composable
 private fun InfoRow(icon: ImageVector, label: String, value: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText(label, value))
+                    if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied: $label", Toast.LENGTH_SHORT).show()
+                }
+            )
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

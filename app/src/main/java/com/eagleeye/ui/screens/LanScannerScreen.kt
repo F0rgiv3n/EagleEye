@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.eagleeye.ui.screens
 
 import android.content.ClipData
@@ -303,7 +304,7 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
 
 @Composable
 private fun ScanHistoryDialog(history: List<ScanSnapshot>, onDismiss: () -> Unit) {
-    val sdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
+    val sdf = remember { java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = SurfaceDark,
@@ -856,8 +857,18 @@ private fun PortChip(port: Int, label: String) {
 
 @Composable
 private fun DetailRow(label: String, value: String) {
+    val context = LocalContext.current
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText(label, value))
+                    if (android.os.Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(context, "Copied: $label", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            ),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = TextDim)
@@ -900,7 +911,6 @@ private fun latencyColor(ms: Long) = when {
     else -> CyberOrange
 }
 
-private fun formatTime(timestamp: Long): String {
-    val sdf = java.text.SimpleDateFormat("dd/MM/yy HH:mm", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(timestamp))
-}
+private val sdfFormatTime = java.text.SimpleDateFormat("dd/MM/yy HH:mm", java.util.Locale.getDefault())
+
+private fun formatTime(timestamp: Long): String = sdfFormatTime.format(java.util.Date(timestamp))
