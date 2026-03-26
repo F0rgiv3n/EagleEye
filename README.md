@@ -84,16 +84,21 @@ app/src/main/java/com/eagleeye/
 
 ---
 
-### Part 2 — LAN Scanner 🔄 In Progress
+### Part 2 — LAN Scanner ✅
 | Feature | Status |
 |---|---|
-| ARP + ICMP sweep (full subnet discovery) | 🔄 |
-| Device list: IP, MAC, hostname, online status | 🔄 |
-| OUI/vendor lookup (bundled Wireshark database) | 🔄 |
-| Ping latency per host | 🔄 |
-| Port scanner — top ports, service detection | 🔄 |
-| Device persistence (Room DB — first seen / last seen) | 🔄 |
-| New device alert | 🔄 |
+| ARP + ICMP sweep (full subnet /24 discovery, 20 concurrent probes) | ✅ Done |
+| Device list: IP, MAC, hostname, online status | ✅ Done |
+| OUI/vendor lookup (bundled Wireshark database, 56k entries) | ✅ Done |
+| Ping latency per host with color coding | ✅ Done |
+| Port scanner — 16 common ports with service names | ✅ Done |
+| Device persistence (Room DB — first seen / last seen) | ✅ Done |
+| "NEW" badge for unknown devices | ✅ Done |
+| Mark device as known | ✅ Done |
+| Smart device icon (camera, server, SSH, web, etc.) | ✅ Done |
+| Expandable device card with full details | ✅ Done |
+| Scan progress bar (host counter) | ✅ Done |
+| Stats: Online / Total / Unknown counts | ✅ Done |
 
 ---
 

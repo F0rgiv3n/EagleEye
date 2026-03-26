@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eagleeye.modules.wifi.WifiViewModel
+import com.eagleeye.modules.lan.LanViewModel
 import com.eagleeye.ui.screens.*
 import com.eagleeye.ui.theme.*
 
@@ -64,6 +65,7 @@ val bottomNavItems = listOf(
 @Composable
 fun EagleEyeApp() {
     val wifiViewModel: WifiViewModel = viewModel()
+    val lanViewModel: LanViewModel = viewModel()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
     Scaffold(
@@ -103,11 +105,7 @@ fun EagleEyeApp() {
             when (currentScreen) {
                 Screen.Dashboard -> DashboardScreen(wifiViewModel)
                 Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
-                Screen.LanScanner -> PlaceholderScreen(
-                    icon = Icons.Default.DeviceHub,
-                    title = "LAN Scanner",
-                    subtitle = "Coming in Part 2"
-                )
+                Screen.LanScanner -> LanScannerScreen(lanViewModel)
                 Screen.Security -> PlaceholderScreen(
                     icon = Icons.Default.Shield,
                     title = "Security Engine",
