@@ -32,8 +32,26 @@ import com.eagleeye.modules.security.SecurityViewModel
 import com.eagleeye.ui.theme.*
 
 @Composable
-fun SecurityScreen(viewModel: SecurityViewModel) {
+fun SecurityScreen(
+    viewModel: SecurityViewModel,
+    toolsViewModel: com.eagleeye.modules.tools.ToolsViewModel? = null,
+    wifiViewModel: com.eagleeye.modules.wifi.WifiViewModel? = null,
+    lanViewModel: com.eagleeye.modules.lan.LanViewModel? = null
+) {
     val state by viewModel.auditState.collectAsState()
+    val exportIntent by toolsViewModel?.exportIntent?.collectAsState() ?: remember { mutableStateOf(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Launch share intent when export is ready
+    LaunchedEffect(exportIntent) {
+        exportIntent?.let {
+            context.startActivity(android.content.Intent.createChooser(it, "Share Report"))
+            toolsViewModel?.clearExportIntent()
+        }
+    }
+
+    val wifiInfo by wifiViewModel?.connectionInfo?.collectAsState() ?: remember { mutableStateOf(com.eagleeye.data.WifiConnectionInfo()) }
+    val lanDevices by lanViewModel?.savedDevices?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
 
     Column(
         modifier = Modifier
@@ -59,6 +77,46 @@ fun SecurityScreen(viewModel: SecurityViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = TextDim
                 )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Export button (only when we have results)
+            if (toolsViewModel != null && state is AuditState.Result) {
+                var showExportMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { showExportMenu = true },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CyberBlue.copy(alpha = 0.12f))
+                            .border(1.dp, CyberBlue.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(Icons.Default.Share, null, tint = CyberBlue)
+                    }
+                    DropdownMenu(
+                        expanded = showExportMenu,
+                        onDismissRequest = { showExportMenu = false },
+                        modifier = Modifier.background(SurfaceVariantDark)
+                    ) {
+                        val score = (state as? AuditState.Result)?.score
+                        DropdownMenuItem(
+                            text = { Text("Export JSON", style = MaterialTheme.typography.bodySmall, color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Code, null, tint = CyberGreen, modifier = Modifier.size(16.dp)) },
+                            onClick = {
+                                showExportMenu = false
+                                toolsViewModel.exportReport(wifiInfo, score, lanDevices, asJson = true)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export Text", style = MaterialTheme.typography.bodySmall, color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Article, null, tint = CyberBlue, modifier = Modifier.size(16.dp)) },
+                            onClick = {
+                                showExportMenu = false
+                                toolsViewModel.exportReport(wifiInfo, score, lanDevices, asJson = false)
+                            }
+                        )
+                    }
+                }
             }
 
             Button(
@@ -90,6 +148,7 @@ fun SecurityScreen(viewModel: SecurityViewModel) {
                     Text("SCAN")
                 }
             }
+            } // close Row for buttons
         }
 
         Spacer(modifier = Modifier.height(16.dp))

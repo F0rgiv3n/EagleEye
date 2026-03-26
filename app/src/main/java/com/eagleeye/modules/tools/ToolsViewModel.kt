@@ -1,9 +1,12 @@
 package com.eagleeye.modules.tools
 
 import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.eagleeye.data.*
+import com.eagleeye.modules.cve.CveRepository
+import com.eagleeye.modules.export.ReportExporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,11 +14,14 @@ import kotlinx.coroutines.launch
 class ToolsViewModel(application: Application) : AndroidViewModel(application) {
 
     val tools = NetworkTools(application)
+    private val sslInspector = SslInspector()
+    private val vpnDetector = VpnLeakDetector(application)
+    private val cveRepo = CveRepository()
+    private val exporter = ReportExporter(application)
 
     // ── Ping ──
     private val _pingResult = MutableStateFlow<PingResult?>(null)
     val pingResult: StateFlow<PingResult?> = _pingResult.asStateFlow()
-
     private val _pingRunning = MutableStateFlow(false)
     val pingRunning: StateFlow<Boolean> = _pingRunning.asStateFlow()
 
@@ -31,7 +37,6 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     // ── Traceroute ──
     private val _traceHops = MutableStateFlow<List<TracerouteHop>>(emptyList())
     val traceHops: StateFlow<List<TracerouteHop>> = _traceHops.asStateFlow()
-
     private val _traceRunning = MutableStateFlow(false)
     val traceRunning: StateFlow<Boolean> = _traceRunning.asStateFlow()
 
@@ -47,10 +52,8 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     // ── Port Scan ──
     private val _portResults = MutableStateFlow<List<PortScanResult>>(emptyList())
     val portResults: StateFlow<List<PortScanResult>> = _portResults.asStateFlow()
-
     private val _portScanProgress = MutableStateFlow(0f)
     val portScanProgress: StateFlow<Float> = _portScanProgress.asStateFlow()
-
     private val _portScanRunning = MutableStateFlow(false)
     val portScanRunning: StateFlow<Boolean> = _portScanRunning.asStateFlow()
 
@@ -71,7 +74,6 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     // ── DNS ──
     private val _dnsResult = MutableStateFlow<DnsResult?>(null)
     val dnsResult: StateFlow<DnsResult?> = _dnsResult.asStateFlow()
-
     private val _dnsRunning = MutableStateFlow(false)
     val dnsRunning: StateFlow<Boolean> = _dnsRunning.asStateFlow()
 
@@ -87,7 +89,6 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     // ── Public IP ──
     private val _publicIp = MutableStateFlow<PublicIpInfo?>(null)
     val publicIp: StateFlow<PublicIpInfo?> = _publicIp.asStateFlow()
-
     private val _ipLoading = MutableStateFlow(false)
     val ipLoading: StateFlow<Boolean> = _ipLoading.asStateFlow()
 
@@ -109,6 +110,72 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             _wolStatus.value = if (ok) "Magic packet sent to $mac" else "Failed — check MAC format"
         }
     }
-
     fun clearWolStatus() { _wolStatus.value = null }
+
+    // ── SSL Inspector ──
+    private val _sslResult = MutableStateFlow<SslCertInfo?>(null)
+    val sslResult: StateFlow<SslCertInfo?> = _sslResult.asStateFlow()
+    private val _sslRunning = MutableStateFlow(false)
+    val sslRunning: StateFlow<Boolean> = _sslRunning.asStateFlow()
+
+    fun runSslInspect(host: String, port: Int = 443) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _sslRunning.value = true
+            _sslResult.value = null
+            _sslResult.value = sslInspector.inspect(host, port)
+            _sslRunning.value = false
+        }
+    }
+
+    // ── VPN Leak ──
+    private val _vpnLeakResult = MutableStateFlow<VpnLeakResult?>(null)
+    val vpnLeakResult: StateFlow<VpnLeakResult?> = _vpnLeakResult.asStateFlow()
+    private val _vpnRunning = MutableStateFlow(false)
+    val vpnRunning: StateFlow<Boolean> = _vpnRunning.asStateFlow()
+
+    fun runVpnLeakTest() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _vpnRunning.value = true
+            _vpnLeakResult.value = null
+            _vpnLeakResult.value = vpnDetector.detect()
+            _vpnRunning.value = false
+        }
+    }
+
+    // ── CVE Lookup ──
+    private val _cveResult = MutableStateFlow<CveLookupResult?>(null)
+    val cveResult: StateFlow<CveLookupResult?> = _cveResult.asStateFlow()
+    private val _cveRunning = MutableStateFlow(false)
+    val cveRunning: StateFlow<Boolean> = _cveRunning.asStateFlow()
+
+    fun searchCves(keyword: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _cveRunning.value = true
+            _cveResult.value = null
+            _cveResult.value = cveRepo.searchCves(keyword)
+            _cveRunning.value = false
+        }
+    }
+
+    // ── Export ──
+    private val _exportIntent = MutableStateFlow<Intent?>(null)
+    val exportIntent: StateFlow<Intent?> = _exportIntent.asStateFlow()
+
+    fun exportReport(
+        wifi: WifiConnectionInfo,
+        score: SecurityScore?,
+        devices: List<LanDevice>,
+        asJson: Boolean = true
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val intent = if (asJson)
+                exporter.exportJson(wifi, score, devices)
+            else
+                exporter.exportText(wifi, score, devices)
+            _exportIntent.value = intent
+        }
+    }
+    fun clearExportIntent() { _exportIntent.value = null }
+
+    fun getServiceName(port: Int) = tools.getServiceName(port)
 }

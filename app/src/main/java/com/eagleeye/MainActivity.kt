@@ -114,7 +114,7 @@ fun EagleEyeApp() {
                 Screen.Dashboard -> DashboardScreen(wifiViewModel)
                 Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
                 Screen.LanScanner -> LanScannerScreen(lanViewModel)
-                Screen.Security -> SecurityScreen(securityViewModel)
+                Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
                 Screen.Tools -> ToolsScreen(toolsViewModel)
                 Screen.Mac -> MacScreen(macViewModel)
             }

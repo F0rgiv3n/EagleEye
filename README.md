@@ -154,17 +154,23 @@ app/src/main/java/com/eagleeye/
 
 ---
 
-### Part 6 — Advanced / CVE Intelligence 📋 Planned
+### Part 6 — CVE Intelligence, SSL, VPN Leak & Export ✅
 | Feature | Status |
 |---|---|
-| CVE lookup via NVD API (router model → known vulns) | 📋 |
-| SSL/TLS inspector (expired certs, weak ciphers) | 📋 |
-| Captive portal analyzer | 📋 |
-| IoT device profiling (default credentials check) | 📋 |
-| VPN leak detector (DNS, WebRTC, IPv6) | 📋 |
-| Packet capture broadcast traffic (root) | 📋 |
-| Export reports (PDF / JSON / CSV) | 📋 |
-| Dark mode widgets + auto-scan notifications | 📋 |
+| CVE lookup via NIST NVD API v2 (keyword → CVE list with CVSS score) | ✅ Done |
+| CVE severity color coding (CRITICAL/HIGH/MEDIUM/LOW) | ✅ Done |
+| Expandable CVE cards with description, date, references | ✅ Done |
+| In-memory CVE cache (avoid duplicate API calls) | ✅ Done |
+| SSL/TLS inspector — grade A+/A/B/C/F | ✅ Done |
+| Certificate details: subject, issuer, expiry, days remaining | ✅ Done |
+| Weak cipher/protocol detection (RC4, DES, TLSv1.0, TLSv1.1) | ✅ Done |
+| Self-signed certificate detection | ✅ Done |
+| VPN leak detector — DNS leak, IPv6 leak | ✅ Done |
+| VPN active status detection | ✅ Done |
+| Export report as JSON (full structured data) | ✅ Done |
+| Export report as plain text (human-readable) | ✅ Done |
+| Share via Android share sheet (FileProvider) | ✅ Done |
+| Export triggered from Security screen via share icon | ✅ Done |
 
 ---
 

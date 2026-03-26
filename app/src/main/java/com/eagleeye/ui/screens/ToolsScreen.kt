@@ -26,7 +26,7 @@ import com.eagleeye.data.*
 import com.eagleeye.modules.tools.ToolsViewModel
 import com.eagleeye.ui.theme.*
 
-private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN }
+private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE }
 
 @Composable
 fun ToolsScreen(viewModel: ToolsViewModel) {
@@ -55,6 +55,9 @@ fun ToolsScreen(viewModel: ToolsViewModel) {
             Tool.DNS         -> DnsTool(viewModel)
             Tool.PUBLIC_IP   -> PublicIpTool(viewModel)
             Tool.WAKE_ON_LAN -> WakeOnLanTool(viewModel)
+            Tool.SSL         -> SslTool(viewModel)
+            Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
+            Tool.CVE         -> CveTool(viewModel)
         }
     }
 }
@@ -67,13 +70,17 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.PORT_SCAN to (Icons.Default.Search to "Ports"),
         Tool.DNS to (Icons.Default.Dns to "DNS"),
         Tool.PUBLIC_IP to (Icons.Default.Public to "IP"),
-        Tool.WAKE_ON_LAN to (Icons.Default.Power to "WoL")
+        Tool.WAKE_ON_LAN to (Icons.Default.Power to "WoL"),
+        Tool.SSL to (Icons.Default.Lock to "SSL"),
+        Tool.VPN_LEAK to (Icons.Default.VpnKey to "VPN"),
+        Tool.CVE to (Icons.Default.BugReport to "CVE")
     )
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(SurfaceDark)
+            .horizontalScroll(rememberScrollState())
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -82,7 +89,7 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
             val isSelected = selected == tool
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .width(64.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isSelected) CyberGreen.copy(alpha = 0.15f) else Color.Transparent)
                     .border(
@@ -642,6 +649,354 @@ private fun cyberTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = SurfaceDark,
     unfocusedContainerColor = SurfaceDark
 )
+
+// ── SSL INSPECTOR ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun SslTool(viewModel: ToolsViewModel) {
+    var host by remember { mutableStateOf("") }
+    var port by remember { mutableStateOf("443") }
+    val result by viewModel.sslResult.collectAsState()
+    val running by viewModel.sslRunning.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            OutlinedTextField(
+                value = host, onValueChange = { host = it },
+                label = { Text("Host / IP", style = MaterialTheme.typography.labelMedium) },
+                placeholder = { Text("192.168.1.1") },
+                singleLine = true, modifier = Modifier.weight(1f),
+                colors = cyberTextFieldColors(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+            )
+            OutlinedTextField(
+                value = port, onValueChange = { port = it.filter(Char::isDigit).take(5) },
+                label = { Text("Port", style = MaterialTheme.typography.labelMedium) },
+                singleLine = true, modifier = Modifier.width(88.dp),
+                colors = cyberTextFieldColors(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+            Button(
+                onClick = { kb?.hide(); viewModel.runSslInspect(host, port.toIntOrNull() ?: 443) },
+                enabled = !running && host.isNotBlank(),
+                modifier = Modifier.height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberGreen.copy(alpha = 0.15f), contentColor = CyberGreen,
+                    disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+                ),
+                border = BorderStroke(1.dp, if (!running && host.isNotBlank()) CyberGreen.copy(0.5f) else TextDim.copy(0.3f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (running) CircularProgressIndicator(Modifier.size(14.dp), CyberGreen, strokeWidth = 2.dp)
+                else Text("SCAN", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (running) LoadingCard("Inspecting TLS certificate...")
+
+        result?.let { cert ->
+            val gradeColor = when (cert.grade) {
+                com.eagleeye.data.SslGrade.A_PLUS -> CyberGreen
+                com.eagleeye.data.SslGrade.A      -> CyberGreen
+                com.eagleeye.data.SslGrade.B      -> CyberYellow
+                com.eagleeye.data.SslGrade.C      -> CyberOrange
+                com.eagleeye.data.SslGrade.F,
+                com.eagleeye.data.SslGrade.ERROR  -> CyberRed
+            }
+            ResultCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(cert.host, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                        if (cert.error != null) {
+                            Text(cert.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                            return@ResultCard
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(gradeColor.copy(alpha = 0.12f))
+                            .border(2.dp, gradeColor, androidx.compose.foundation.shape.CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(cert.grade.name.replace("_", "+"), style = MaterialTheme.typography.labelMedium, color = gradeColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (cert.error != null) return@ResultCard
+                Spacer(Modifier.height(10.dp))
+                DetailRow2("Subject", cert.subject)
+                DetailRow2("Issuer", cert.issuer)
+                DetailRow2("Valid From", cert.validFrom)
+                DetailRow2("Valid Until", cert.validUntil)
+                DetailRow2("Protocol", cert.protocol)
+                DetailRow2("Cipher", cert.cipherSuite.take(40))
+                Spacer(Modifier.height(8.dp))
+                val flags = buildList {
+                    if (cert.isExpired) add("EXPIRED" to CyberRed)
+                    if (cert.isSelfSigned) add("SELF-SIGNED" to CyberOrange)
+                    if (cert.isWeak) add("WEAK CIPHER/PROTOCOL" to CyberOrange)
+                    if (!cert.isExpired && cert.daysUntilExpiry in 0..30) add("EXPIRES IN ${cert.daysUntilExpiry}d" to CyberYellow)
+                    if (!cert.isExpired && !cert.isSelfSigned && !cert.isWeak) add("VALID" to CyberGreen)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    flags.forEach { (label, color) ->
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium, color = color,
+                            modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                                .background(color.copy(alpha = 0.12f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── VPN LEAK DETECTOR ─────────────────────────────────────────────────────────
+
+@Composable
+private fun VpnLeakTool(viewModel: ToolsViewModel) {
+    val result by viewModel.vpnLeakResult.collectAsState()
+    val running by viewModel.vpnRunning.collectAsState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("VPN LEAK TEST", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                Text("Checks DNS, IPv6 and IP leaks", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            }
+            Button(
+                onClick = { viewModel.runVpnLeakTest() },
+                enabled = !running,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CyberGreen.copy(alpha = 0.15f), contentColor = CyberGreen,
+                    disabledContainerColor = SurfaceVariantDark, disabledContentColor = TextDim
+                ),
+                border = BorderStroke(1.dp, if (!running) CyberGreen.copy(0.5f) else TextDim.copy(0.3f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (running) {
+                    CircularProgressIndicator(Modifier.size(14.dp), CyberGreen, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("TESTING")
+                } else {
+                    Icon(Icons.Default.VpnKey, null, Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("TEST")
+                }
+            }
+        }
+
+        if (running) LoadingCard("Testing for DNS, IPv6 and IP leaks...")
+
+        result?.let { r ->
+            ResultCard {
+                // VPN status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("VPN Status", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background((if (r.isVpnActive) CyberGreen else CyberOrange).copy(alpha = 0.12f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            if (r.isVpnActive) Icons.Default.VpnKey else Icons.Default.VpnKeyOff,
+                            null, tint = if (r.isVpnActive) CyberGreen else CyberOrange,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            if (r.isVpnActive) "ACTIVE" else "NOT ACTIVE",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (r.isVpnActive) CyberGreen else CyberOrange
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                DetailRow2("Public IP", r.publicIpWithVpn)
+                if (r.ipv6Address.isNotBlank() && r.ipv6Address != "None") {
+                    DetailRow2("IPv6", r.ipv6Address)
+                }
+                if (r.dnsServers.isNotEmpty()) {
+                    DetailRow2("DNS Servers", r.dnsServers.joinToString(", "))
+                }
+                Spacer(Modifier.height(10.dp))
+
+                // Leak indicators
+                val dnsColor = if (r.dnsLeakDetected) CyberRed else CyberGreen
+                val ipv6Color = if (r.ipv6LeakDetected) CyberRed else CyberGreen
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LeakBadge("DNS", r.dnsLeakDetected)
+                    LeakBadge("IPv6", r.ipv6LeakDetected)
+                }
+                Spacer(Modifier.height(10.dp))
+
+                // Details
+                r.leakDetails.forEach { detail ->
+                    val isLeak = detail.contains("Leak") || detail.contains("leak")
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(vertical = 3.dp)
+                    ) {
+                        Icon(
+                            if (isLeak) Icons.Default.Warning else Icons.Default.CheckCircle,
+                            null,
+                            tint = if (isLeak) CyberRed else CyberGreen,
+                            modifier = Modifier.size(14.dp).padding(top = 1.dp)
+                        )
+                        Text(detail, style = MaterialTheme.typography.bodySmall,
+                            color = if (isLeak) CyberRed else TextSecondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeakBadge(label: String, leaked: Boolean) {
+    val color = if (leaked) CyberRed else CyberGreen
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(color.copy(alpha = 0.1f))
+            .border(1.dp, color.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Icon(
+            if (leaked) Icons.Default.Warning else Icons.Default.CheckCircle,
+            null, tint = color, modifier = Modifier.size(12.dp)
+        )
+        Text(
+            "$label ${if (leaked) "LEAK" else "OK"}",
+            style = MaterialTheme.typography.labelMedium, color = color
+        )
+    }
+}
+
+// ── CVE LOOKUP ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun CveTool(viewModel: ToolsViewModel) {
+    var query by remember { mutableStateOf("") }
+    val result by viewModel.cveResult.collectAsState()
+    val running by viewModel.cveRunning.collectAsState()
+    val kb = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Search the NIST NVD for known CVEs by vendor, product, or router model.",
+            style = MaterialTheme.typography.bodySmall, color = TextDim
+        )
+        ToolInputRow(
+            value = query, onValueChange = { query = it },
+            label = "Vendor / Product", placeholder = "TP-Link, Netgear, OpenSSH...",
+            onRun = { kb?.hide(); viewModel.searchCves(query) },
+            running = running
+        )
+
+        if (running) LoadingCard("Querying NIST NVD database...")
+
+        result?.let { r ->
+            if (r.error != null) {
+                ResultCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.ErrorOutline, null, tint = CyberRed, modifier = Modifier.size(16.dp))
+                        Text(r.error, style = MaterialTheme.typography.bodySmall, color = CyberRed)
+                    }
+                }
+            } else {
+                Text(
+                    "${r.totalFound} CVEs found for \"${r.query}\" — showing ${r.entries.size}",
+                    style = MaterialTheme.typography.labelMedium, color = TextDim
+                )
+                r.entries.forEach { cve -> CveCard(cve) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CveCard(cve: com.eagleeye.data.CveEntry) {
+    var expanded by remember { mutableStateOf(false) }
+    val scoreColor = when (cve.severity) {
+        com.eagleeye.data.CveSeverity.CRITICAL -> CyberRed
+        com.eagleeye.data.CveSeverity.HIGH     -> CyberOrange
+        com.eagleeye.data.CveSeverity.MEDIUM   -> CyberYellow
+        com.eagleeye.data.CveSeverity.LOW      -> CyberBlue
+        com.eagleeye.data.CveSeverity.NONE     -> TextDim
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(SurfaceDark)
+            .border(1.dp, scoreColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+            .clickable { expanded = !expanded }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(cve.id, style = MaterialTheme.typography.bodySmall, color = scoreColor, fontWeight = FontWeight.Bold)
+                Text(cve.description.take(80) + if (cve.description.length > 80) "..." else "",
+                    style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 8.dp)) {
+                Text(
+                    "%.1f".format(cve.cvssScore),
+                    style = MaterialTheme.typography.titleMedium, color = scoreColor, fontWeight = FontWeight.Bold
+                )
+                Text(cve.severity.name, style = MaterialTheme.typography.labelMedium, color = scoreColor)
+            }
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(CardDark).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                HorizontalDivider(color = scoreColor.copy(alpha = 0.2f))
+                Text(cve.description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                DetailRow2("Published", cve.publishedDate)
+                DetailRow2("CVSS Score", "%.1f / 10.0 (${cve.severity})".format(cve.cvssScore))
+                if (cve.references.isNotEmpty()) {
+                    Text("References", style = MaterialTheme.typography.labelMedium, color = TextDim)
+                    cve.references.forEach {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = CyberBlue.copy(alpha = 0.8f), maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
 
 private fun latencyColor(ms: Long) = when {
     ms < 0 -> TextDim
