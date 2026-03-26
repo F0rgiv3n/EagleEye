@@ -1,0 +1,83 @@
+Θελω να φτιαξω μια εφαρμογη Android με χαρακτηριστικα WIFI security / Analyzer
+
+Βασικά Wi-Fi / Network Features
+Σύνδεση τρέχοντος Wi-Fi
+SSID, BSSID (MAC router)
+IP συσκευής
+Gateway, Subnet, DNS
+Link speed
+Signal strength (RSSI)
+Frequency / Band (2.4 / 5 / 6 GHz)
+Scan γύρω Wi-Fi δίκτυα
+SSID, BSSID
+Channel, Frequency
+Signal strength
+Security type (WEP/WPA/WPA2/WPA3)
+Hidden networks
+Device scanner στο LAN
+IP + MAC address
+Hostname / Vendor
+Online status
+Ping / Latency / Traceroute
+Port scanner (basic)
+Public IP / local IP / IPv6
+
+2️⃣ Privacy / MAC Features
+Εμφάνιση MAC address συσκευής
+Υποστήριξη randomized MAC ανά Wi-Fi
+Ανίχνευση αν η MAC είναι randomized
+ Αλλαγή MAC σε custom address
+Auto MAC rotation
+
+
+3️⃣ Security / Cybersecurity Features
+Detection άγνωστων συσκευών στο LAN
+ARP spoofing / MITM detection
+Open / Weak Wi-Fi detection
+Open networks
+WEP
+WPS enabled
+Evil twin detection (ίδιο SSID διαφορετικό BSSID)
+Duplicate SSID alert
+Vendor detection από BSSID (π.χ. router type)
+DNS spoofing detection (έλεγχος αν router DNS άλλαξε)
+Deauth attack detection (όπου επιτρέπεται)
+Security score του δικτύου
+Vulnerability warnings:
+Open network detected
+WEP detected
+WPS enabled
+Weak encryption
+Hidden SSID suspicious
+Possible rogue AP
+
+
+4️⃣ Advanced / Optional
+Packet sniffing broadcast traffic (root required)
+IoT / router vulnerability scanning
+CVE lookup για γνωστά vulnerabilities
+Network behavior monitoring
+Wake on LAN για συσκευές στο LAN
+Export / share results
+Dark mode / widget / auto scan notifications
+
+
+λίστα και πληροφορίες γύρω Wi‑Fi δικτύων
+✔️ δείχνουν ασφάλεια / τύπο κρυπτογράφησης (π.χ. WPA2/WPA3)
+✔️ σαρώνουν το LAN για συσκευές
+✔️ παρέχουν εργαλείο ping / traceroute / port scan
+✔️ μπορείς να δεις πληροφορίες για router & signal strength
+
+Να δειχνει Επιπλεον πληροφορίες για καθε συσκευση που υπαρχει στο δικτυο , καθως και αποθηκευση τους .
+Να εχει χαρακτηριστικα Nmap, και πολλα ακομα 
+
+Επισης θα ηθελα
+πλήρη cybersecurity auditing (π.χ. ARP spoof detection, evil twin detection, εξακρίβωση exploit κλπ.)
+
+γενικα προτεινε μου πραγματα ωστε να την κανουμε την απολυτη Cybersecurity εφαρμογη
+
+
+
+
+Και πολυ σημαντικο προτεινε μου βελτιωσεις η και επιπλεον χαρακτηριστικα που να την κανουν ενα πραγματικο CyberSecurity εργαλειο
+
