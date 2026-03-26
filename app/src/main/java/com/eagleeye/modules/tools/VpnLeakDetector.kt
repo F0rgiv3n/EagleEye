@@ -105,28 +105,25 @@ class VpnLeakDetector(private val context: Context) {
     }
 
     private fun fetchPublicIp(): String {
+        val conn1 = URL("https://api4.my-ip.io/v2/ip.txt").openConnection() as java.net.HttpURLConnection
+        conn1.connectTimeout = 5000; conn1.readTimeout = 5000
+        try {
+            return conn1.inputStream.bufferedReader().readText().trim()
+        } catch (_: Exception) {
+        } finally { conn1.disconnect() }
+        val conn2 = URL("https://checkip.amazonaws.com").openConnection() as java.net.HttpURLConnection
+        conn2.connectTimeout = 5000; conn2.readTimeout = 5000
         return try {
-            val url = URL("https://api4.my-ip.io/v2/ip.txt")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.connectTimeout = 5000; conn.readTimeout = 5000
-            conn.inputStream.bufferedReader().readText().trim()
-        } catch (e: Exception) {
-            try {
-                val url = URL("https://checkip.amazonaws.com")
-                val conn = url.openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 5000; conn.readTimeout = 5000
-                conn.inputStream.bufferedReader().readText().trim()
-            } catch (e2: Exception) { "Unavailable" }
-        }
+            conn2.inputStream.bufferedReader().readText().trim()
+        } catch (_: Exception) { "Unavailable" } finally { conn2.disconnect() }
     }
 
     private fun fetchPublicIpv6(): String {
+        val conn = URL("https://api6.my-ip.io/v2/ip.txt").openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 3000; conn.readTimeout = 3000
         return try {
-            val url = URL("https://api6.my-ip.io/v2/ip.txt")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.connectTimeout = 3000; conn.readTimeout = 3000
             conn.inputStream.bufferedReader().readText().trim()
-        } catch (_: Exception) { "None" }
+        } catch (_: Exception) { "None" } finally { conn.disconnect() }
     }
 
     private fun isPrivateIp(ip: String): Boolean {

@@ -46,8 +46,9 @@ class ThreatIntelClient {
         conn.readTimeout = 5000
         conn.requestMethod = "GET"
 
-        val body = conn.inputStream.bufferedReader().readText()
-        conn.disconnect()
+        val body = try {
+            conn.inputStream.bufferedReader().readText()
+        } finally { conn.disconnect() }
 
         val json = JSONObject(body)
         val isProxy = json.optBoolean("proxy", false)
@@ -87,8 +88,9 @@ class ThreatIntelClient {
         conn.setRequestProperty("Key", apiKey)
         conn.setRequestProperty("Accept", "application/json")
 
-        val body = conn.inputStream.bufferedReader().readText()
-        conn.disconnect()
+        val body = try {
+            conn.inputStream.bufferedReader().readText()
+        } finally { conn.disconnect() }
 
         val data = JSONObject(body).optJSONObject("data") ?: return base
         val abuseScore = data.optInt("abuseConfidenceScore", 0)

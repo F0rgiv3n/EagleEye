@@ -34,14 +34,17 @@ class CveRepository {
                 conn.setRequestProperty("Accept", "application/json")
                 conn.setRequestProperty("User-Agent", "EagleEye/1.0")
 
-                if (conn.responseCode != 200) {
-                    return@withContext CveLookupResult(keyword, emptyList(), 0, "HTTP ${conn.responseCode}")
+                try {
+                    if (conn.responseCode != 200) {
+                        return@withContext CveLookupResult(keyword, emptyList(), 0, "HTTP ${conn.responseCode}")
+                    }
+                    val body = conn.inputStream.bufferedReader().readText()
+                    val result = parseNvdResponse(keyword, body)
+                    cache[cacheKey] = result
+                    result
+                } finally {
+                    conn.disconnect()
                 }
-
-                val body = conn.inputStream.bufferedReader().readText()
-                val result = parseNvdResponse(keyword, body)
-                cache[cacheKey] = result
-                result
             } catch (e: Exception) {
                 CveLookupResult(keyword, emptyList(), 0, e.message ?: "Network error")
             }

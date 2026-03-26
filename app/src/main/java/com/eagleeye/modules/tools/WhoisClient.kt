@@ -40,8 +40,9 @@ class WhoisClient {
 
     private fun whoisQuery(query: String, server: String): String {
         return try {
-            Socket(server, 43).use { socket ->
+            Socket().use { socket ->
                 socket.soTimeout = 8000
+                socket.connect(java.net.InetSocketAddress(server, 43), 8000)
                 PrintWriter(socket.outputStream, true).println("$query\r\n")
                 BufferedReader(InputStreamReader(socket.inputStream))
                     .readText()

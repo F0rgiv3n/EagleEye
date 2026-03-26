@@ -115,7 +115,7 @@ class IoTProfiler {
 
         // Try HTTP Server header
         val serverHeader = Regex("Server:\\s*([^\r\n]+)", RegexOption.IGNORE_CASE)
-            .find(banner)?.groupValues?.get(1)?.trim()
+            .find(banner)?.groupValues?.getOrNull(1)?.trim()
         if (!serverHeader.isNullOrBlank()) return serverHeader.take(50)
 
         // Fallback to vendor

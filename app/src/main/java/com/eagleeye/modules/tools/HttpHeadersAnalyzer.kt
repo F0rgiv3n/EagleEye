@@ -15,7 +15,7 @@ class HttpHeadersAnalyzer {
 
     private val specs = listOf(
         HeaderSpec("Strict-Transport-Security", 20, "Forces HTTPS connections") { v ->
-            val maxAge = Regex("max-age=(\\d+)").find(v)?.groupValues?.get(1)?.toLongOrNull() ?: -1L
+            val maxAge = Regex("max-age=(\\d+)").find(v)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: -1L
             when {
                 maxAge < 0 -> HeaderStatus.MISSING
                 maxAge < 15552000 -> HeaderStatus.WEAK

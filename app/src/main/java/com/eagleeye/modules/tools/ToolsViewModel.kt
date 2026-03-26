@@ -603,12 +603,12 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
             val seen = mutableSetOf<String>()
             itemRegex.findAll(json).take(200).forEach { m ->
                 val obj = m.value
-                val id = idR.find(obj)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-                val issuer = issuerR.find(obj)?.groupValues?.get(1) ?: ""
-                val notBefore = notBeforeR.find(obj)?.groupValues?.get(1) ?: ""
-                val notAfter  = notAfterR.find(obj)?.groupValues?.get(1) ?: ""
-                val cn = cnR.find(obj)?.groupValues?.get(1) ?: ""
-                val name = nameR.find(obj)?.groupValues?.get(1) ?: ""
+                val id = idR.find(obj)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
+                val issuer = issuerR.find(obj)?.groupValues?.getOrNull(1) ?: ""
+                val notBefore = notBeforeR.find(obj)?.groupValues?.getOrNull(1) ?: ""
+                val notAfter  = notAfterR.find(obj)?.groupValues?.getOrNull(1) ?: ""
+                val cn = cnR.find(obj)?.groupValues?.getOrNull(1) ?: ""
+                val name = nameR.find(obj)?.groupValues?.getOrNull(1) ?: ""
                 val key = "$cn|$notBefore|$notAfter"
                 if (key !in seen) {
                     seen += key

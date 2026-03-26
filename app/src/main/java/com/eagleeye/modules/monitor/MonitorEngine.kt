@@ -88,7 +88,7 @@ class MonitorEngine(private val context: Context) {
         if (config.notifyArpSpoof) {
             val macToIps = arpEntries.groupBy { it.mac }
             for ((mac, entries) in macToIps) {
-                if (entries.size > 2 && mac != "00:00:00:00:00:00") {
+                if (entries.size > 1 && mac != "00:00:00:00:00:00") {
                     val ips = entries.joinToString(", ") { it.ip }
                     events.add(NetworkEvent(
                         type = EventType.ARP_SPOOF,

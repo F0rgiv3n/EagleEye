@@ -608,7 +608,7 @@ private fun DeviceCard(device: LanDevice, viewModel: LanViewModel, iotProfile: I
                                     val proc = Runtime.getRuntime()
                                         .exec(arrayOf("ping", "-c", "1", "-W", "2", device.ip))
                                     val out = proc.inputStream.bufferedReader().readText()
-                                    val ms = Regex("time=(\\d+\\.?\\d*) ms").find(out)?.groupValues?.get(1)
+                                    val ms = Regex("time=(\\d+\\.?\\d*) ms").find(out)?.groupValues?.getOrNull(1)
                                     if (ms != null) PingState.Success("${ms}ms")
                                     else PingState.Failed("No reply")
                                 } catch (e: Exception) {
