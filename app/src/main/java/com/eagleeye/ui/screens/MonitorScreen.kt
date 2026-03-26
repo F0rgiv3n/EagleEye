@@ -2,6 +2,7 @@ package com.eagleeye.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,17 +15,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.eagleeye.data.*
 import com.eagleeye.modules.monitor.MonitorViewModel
 import com.eagleeye.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MonitorScreen(viewModel: MonitorViewModel) {
     val context = LocalContext.current
@@ -34,9 +40,7 @@ fun MonitorScreen(viewModel: MonitorViewModel) {
     val isRunning by viewModel.isRunning.collectAsState()
 
     var showSettings by remember { mutableStateOf(false) }
-
-    // Tab state
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedFilter by remember { mutableStateOf("ALL") }
 
     Column(
         modifier = Modifier
@@ -97,36 +101,39 @@ fun MonitorScreen(viewModel: MonitorViewModel) {
             EventStatChip("UNREAD",   "$unread",        if (unread > 0) CyberYellow else TextDim, Modifier.weight(1f))
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Tabs: Timeline / Threats only
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = SurfaceDark,
-            contentColor = CyberGreen,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = CyberGreen
-                )
-            }
+        // 7-day activity chart
+        ActivityChart(events)
+
+        Spacer(Modifier.height(10.dp))
+
+        // Filter chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            listOf("TIMELINE", "THREATS ONLY").forEachIndexed { i, label ->
-                Tab(
-                    selected = selectedTab == i,
-                    onClick = { selectedTab = i },
-                    text = {
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (selectedTab == i) CyberGreen else TextDim
-                        )
-                    }
+            listOf("ALL", "DEVICES", "THREATS", "SCANS", "AUDITS").forEach { f ->
+                val selected = selectedFilter == f
+                Text(
+                    f,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) CyberGreen else TextDim,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (selected) CyberGreen.copy(alpha = 0.12f) else SurfaceVariantDark)
+                        .border(1.dp,
+                            if (selected) CyberGreen.copy(alpha = 0.45f) else Color.Transparent,
+                            RoundedCornerShape(20.dp))
+                        .clickable { selectedFilter = f }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
 
         // Actions row
         Row(
@@ -150,17 +157,31 @@ fun MonitorScreen(viewModel: MonitorViewModel) {
             }
         }
 
-        val filteredEvents = when (selectedTab) {
-            1 -> events.filter { it.type != EventType.SCAN_COMPLETE && it.type != EventType.MONITOR_STARTED && it.type != EventType.MONITOR_STOPPED }
-            else -> events
+        val filteredEvents = events.filter { event ->
+            when (selectedFilter) {
+                "DEVICES"  -> event.type in listOf(EventType.NEW_DEVICE, EventType.DEVICE_GONE)
+                "THREATS"  -> event.type in listOf(EventType.ARP_SPOOF, EventType.EVIL_TWIN,
+                    EventType.DNS_CHANGED, EventType.WPS_DETECTED, EventType.OPEN_NETWORK)
+                "SCANS"    -> event.type in listOf(EventType.SCAN_COMPLETE,
+                    EventType.MONITOR_STARTED, EventType.MONITOR_STOPPED)
+                "AUDITS"   -> event.type == EventType.SECURITY_AUDIT
+                else       -> true
+            }
         }
 
         if (filteredEvents.isEmpty()) {
             EmptyTimeline(isRunning)
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(filteredEvents, key = { it.id }) { event ->
-                    EventCard(event)
+            val sortedEvents = filteredEvents.sortedByDescending { it.timestamp }
+            val dayKeys = sortedEvents.map { dayLabel(it.timestamp) }.distinct()
+            val grouped  = sortedEvents.groupBy { dayLabel(it.timestamp) }
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                dayKeys.forEach { key ->
+                    stickyHeader(key = "h_$key") { DayHeader(key) }
+                    val dayEvents = grouped[key] ?: emptyList()
+                    items(dayEvents, key = { it.id }) { EventCard(it) }
+                    item(key = "sp_$key") { Spacer(Modifier.height(4.dp)) }
                 }
             }
         }
@@ -288,6 +309,7 @@ private fun eventStyle(event: NetworkEvent): Pair<Color, ImageVector> = when (ev
     EventType.SCAN_COMPLETE   -> TextDim to Icons.Default.Check
     EventType.MONITOR_STARTED -> CyberGreen to Icons.Default.PlayArrow
     EventType.MONITOR_STOPPED -> TextDim to Icons.Default.Stop
+    EventType.SECURITY_AUDIT  -> CyberBlue to Icons.Default.Shield
 }
 
 // ── Monitor Toggle Button ─────────────────────────────────────────────────────
@@ -464,6 +486,129 @@ private fun EmptyTimeline(isRunning: Boolean) {
     }
 }
 
+// ── Activity Chart ────────────────────────────────────────────────────────────
+
+@Composable
+private fun ActivityChart(events: List<NetworkEvent>) {
+    val dayMs = 86_400_000L
+    val now   = System.currentTimeMillis()
+
+    // 7 bars: index 0 = 6 days ago, index 6 = today
+    data class Bar(val label: String, val count: Int, val worstSev: Int)
+    val bars = (6 downTo 0).map { daysAgo ->
+        val start = now - (daysAgo + 1) * dayMs
+        val end   = now - daysAgo * dayMs
+        val dayEvents = events.filter { it.timestamp in start until end && it.type != EventType.SCAN_COMPLETE }
+        val worstSev = dayEvents.maxOfOrNull { it.severity.ordinal } ?: -1
+        val cal = Calendar.getInstance().apply { timeInMillis = end - 1 }
+        Bar(SimpleDateFormat("EEE", Locale.getDefault()).format(cal.time).take(3).uppercase(), dayEvents.size, worstSev)
+    }
+    val maxCount = bars.maxOf { it.count }.coerceAtLeast(1)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("7-DAY ACTIVITY",
+            style = MaterialTheme.typography.labelMedium,
+            color = TextDim,
+            modifier = Modifier.padding(bottom = 4.dp))
+
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            val segW = size.width / 7f
+            val maxBarH = size.height - 16.dp.toPx()
+            val labelPaint = android.graphics.Paint().apply {
+                textSize = 8.sp.toPx()
+                typeface = android.graphics.Typeface.MONOSPACE
+                textAlign = android.graphics.Paint.Align.CENTER
+                isAntiAlias = true
+            }
+
+            bars.forEachIndexed { i, bar ->
+                val cx = i * segW + segW / 2f
+                val barW = segW * 0.55f
+                val barH = if (bar.count == 0) 2.dp.toPx()
+                           else (bar.count.toFloat() / maxCount) * maxBarH
+
+                val color = when (bar.worstSev) {
+                    4 -> android.graphics.Color.argb(255, 255, 59, 92)   // CRITICAL
+                    3 -> android.graphics.Color.argb(255, 255, 107, 53)  // HIGH
+                    2 -> android.graphics.Color.argb(255, 255, 149, 0)   // MEDIUM
+                    1 -> android.graphics.Color.argb(255, 0, 200, 136)   // LOW
+                    0 -> android.graphics.Color.argb(255, 0, 255, 136)   // INFO
+                    else -> android.graphics.Color.argb(60, 0, 255, 136) // no events
+                }
+                val barPaint = android.graphics.Paint().apply {
+                    this.color = color
+                    style = android.graphics.Paint.Style.FILL
+                    isAntiAlias = true
+                }
+                val dimPaint = android.graphics.Paint().apply {
+                    this.color = color
+                    alpha = 50
+                    style = android.graphics.Paint.Style.FILL
+                }
+
+                val barTop = size.height - barH - 16.dp.toPx()
+                // dim full-height background
+                drawContext.canvas.nativeCanvas.drawRect(
+                    cx - barW / 2f, size.height - maxBarH - 16.dp.toPx(),
+                    cx + barW / 2f, size.height - 16.dp.toPx(), dimPaint
+                )
+                // actual bar
+                drawContext.canvas.nativeCanvas.drawRect(
+                    cx - barW / 2f, barTop, cx + barW / 2f, size.height - 16.dp.toPx(), barPaint
+                )
+                // count label above bar (only if > 0)
+                if (bar.count > 0) {
+                    barPaint.textSize = 7.sp.toPx()
+                    barPaint.textAlign = android.graphics.Paint.Align.CENTER
+                    drawContext.canvas.nativeCanvas.drawText("${bar.count}", cx, barTop - 2.dp.toPx(), barPaint)
+                }
+                // day label
+                labelPaint.color = android.graphics.Color.argb(120, 160, 170, 180)
+                drawContext.canvas.nativeCanvas.drawText(bar.label, cx, size.height - 2.dp.toPx(), labelPaint)
+            }
+        }
+    }
+}
+
+// ── Day Header ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun DayHeader(label: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BackgroundDark)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = CardBorderDark, thickness = 0.5.dp)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = TextDim,
+            fontWeight = FontWeight.Medium
+        )
+        HorizontalDivider(modifier = Modifier.weight(3f), color = CardBorderDark, thickness = 0.5.dp)
+    }
+}
+
+private fun dayLabel(ts: Long): String {
+    val now = Calendar.getInstance()
+    val cal = Calendar.getInstance().apply { timeInMillis = ts }
+    val sameYear = cal.get(Calendar.YEAR) == now.get(Calendar.YEAR)
+    val diffDays = now.get(Calendar.DAY_OF_YEAR) - cal.get(Calendar.DAY_OF_YEAR)
+    return when {
+        sameYear && diffDays == 0 -> "TODAY"
+        sameYear && diffDays == 1 -> "YESTERDAY"
+        else -> SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date(ts)).uppercase()
+    }
+}
+
 private fun formatEventTime(ts: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - ts
@@ -475,12 +620,3 @@ private fun formatEventTime(ts: Long): String {
     }
 }
 
-// Extension for tab indicator
-private fun Modifier.tabIndicatorOffset(tabPosition: androidx.compose.material3.TabPosition) =
-    this.then(
-        Modifier
-            .fillMaxWidth()
-            .wrapContentSize(Alignment.BottomStart)
-            .offset(x = tabPosition.left)
-            .width(tabPosition.width)
-    )

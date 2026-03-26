@@ -7,9 +7,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.eagleeye.data.SecurityScore
-import com.eagleeye.data.Threat
-import com.eagleeye.data.ThreatLevel
+import com.eagleeye.data.*
 import com.eagleeye.data.db.AppDatabase
 import com.eagleeye.widget.SecurityWidgetReceiver
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +25,7 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
 
     private val detector = ThreatDetector(application)
     private val dao = AppDatabase.getInstance(application).lanDeviceDao()
+    private val eventDao = AppDatabase.getInstance(application).networkEventDao()
 
     private val _auditState = MutableStateFlow<AuditState>(AuditState.Idle)
     val auditState: StateFlow<AuditState> = _auditState.asStateFlow()
@@ -43,6 +42,19 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
                 val score = detector.runFullAudit(unknownCount)
                 _auditState.value = AuditState.Result(score)
                 updateWidget(score, score.threats)
+                val sev = when {
+                    score.threats.any { it.level == ThreatLevel.CRITICAL } -> EventSeverity.CRITICAL
+                    score.threats.any { it.level == ThreatLevel.HIGH }     -> EventSeverity.HIGH
+                    score.total < 60 -> EventSeverity.MEDIUM
+                    score.total < 80 -> EventSeverity.LOW
+                    else             -> EventSeverity.INFO
+                }
+                eventDao.insert(NetworkEvent(
+                    type     = EventType.SECURITY_AUDIT,
+                    severity = sev,
+                    title    = "Security Audit · Grade ${score.grade}",
+                    detail   = "${score.threats.size} threat${if (score.threats.size != 1) "s" else ""} detected · score ${score.total}/100"
+                ))
             } catch (e: Exception) {
                 _auditState.value = AuditState.Error(e.message ?: "Audit failed")
             }

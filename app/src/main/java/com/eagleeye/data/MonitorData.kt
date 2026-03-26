@@ -13,7 +13,8 @@ enum class EventType {
     OPEN_NETWORK,
     SCAN_COMPLETE,
     MONITOR_STARTED,
-    MONITOR_STOPPED
+    MONITOR_STOPPED,
+    SECURITY_AUDIT
 }
 
 enum class EventSeverity { CRITICAL, HIGH, MEDIUM, LOW, INFO }
