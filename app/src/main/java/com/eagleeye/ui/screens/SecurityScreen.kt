@@ -52,6 +52,17 @@ fun SecurityScreen(
 
     val wifiInfo by wifiViewModel?.connectionInfo?.collectAsState() ?: remember { mutableStateOf(com.eagleeye.data.WifiConnectionInfo()) }
     val lanDevices by lanViewModel?.savedDevices?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
+    var showRadar by remember { mutableStateOf(false) }
+
+    if (showRadar) {
+        val threats = (state as? AuditState.Result)?.score?.threats ?: emptyList()
+        ThreatRadarScreen(
+            devices = lanDevices,
+            threats = threats,
+            onBack = { showRadar = false }
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -80,6 +91,16 @@ fun SecurityScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Radar button
+            IconButton(
+                onClick = { showRadar = true },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CyberGreen.copy(alpha = 0.10f))
+                    .border(1.dp, CyberGreen.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+            ) {
+                Icon(Icons.Default.Radar, null, tint = CyberGreen)
+            }
             // Export button (only when we have results)
             if (toolsViewModel != null && state is AuditState.Result) {
                 var showExportMenu by remember { mutableStateOf(false) }

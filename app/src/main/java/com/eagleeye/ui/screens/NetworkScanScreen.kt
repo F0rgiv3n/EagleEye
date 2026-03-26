@@ -2,6 +2,7 @@ package com.eagleeye.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,16 @@ fun NetworkScanScreen(viewModel: WifiViewModel) {
     val scanResults by viewModel.scanResults.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val currentInfo by viewModel.connectionInfo.collectAsState()
+    var showSpectrum by remember { mutableStateOf(false) }
+
+    if (showSpectrum) {
+        SpectrumScreen(
+            networks = scanResults,
+            currentSsid = currentInfo.ssid,
+            onBack = { showSpectrum = false }
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -48,6 +59,16 @@ fun NetworkScanScreen(viewModel: WifiViewModel) {
                 )
             }
 
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            IconButton(
+                onClick = { showSpectrum = true },
+                modifier = androidx.compose.ui.Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(CyberBlue.copy(alpha = 0.10f))
+                    .border(BorderStroke(1.dp, CyberBlue.copy(alpha = 0.3f)), RoundedCornerShape(8.dp))
+            ) {
+                Icon(Icons.Default.BarChart, null, tint = CyberBlue)
+            }
             Button(
                 onClick = { viewModel.startNetworkScan() },
                 enabled = !isScanning,
@@ -74,6 +95,7 @@ fun NetworkScanScreen(viewModel: WifiViewModel) {
                     Text("SCAN")
                 }
             }
+            } // end Row
         }
 
         Spacer(modifier = Modifier.height(16.dp))
