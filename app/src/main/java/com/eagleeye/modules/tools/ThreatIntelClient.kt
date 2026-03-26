@@ -18,7 +18,7 @@ class ThreatIntelClient {
     )
 
     suspend fun check(ip: String, abuseIpDbKey: String = ""): ThreatIntelResult {
-        if (!ip.first().isDigit() || !ip.contains('.')) {
+        if (ip.isEmpty() || !ip.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"""))) {
             return ThreatIntelResult(ip = ip, error = "Invalid IP address format")
         }
 

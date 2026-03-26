@@ -58,29 +58,31 @@ class HttpHeadersAnalyzer {
         val normalizedUrl = if (!url.startsWith("http")) "https://$url" else url
         return try {
             val conn = openConnection(normalizedUrl, "HEAD")
-            val responseCode = try { conn.responseCode } catch (e: Exception) { -1 }
-            val headers = conn.headerFields ?: emptyMap()
-            conn.disconnect()
-
-            val headerMap = headers
-                .filterKeys { it != null }
-                .mapKeys { it.key.lowercase() }
-                .mapValues { it.value.firstOrNull() ?: "" }
-
-            buildResult(normalizedUrl, headerMap, responseCode)
-        } catch (e: Exception) {
             try {
-                val conn = openConnection(normalizedUrl, "GET")
-                val responseCode = try { conn.responseCode } catch (ex: Exception) { -1 }
+                val responseCode = try { conn.responseCode } catch (_: Exception) { -1 }
                 val headers = conn.headerFields ?: emptyMap()
-                conn.disconnect()
-
                 val headerMap = headers
                     .filterKeys { it != null }
                     .mapKeys { it.key.lowercase() }
                     .mapValues { it.value.firstOrNull() ?: "" }
-
                 buildResult(normalizedUrl, headerMap, responseCode)
+            } finally {
+                conn.disconnect()
+            }
+        } catch (e: Exception) {
+            try {
+                val conn = openConnection(normalizedUrl, "GET")
+                try {
+                    val responseCode = try { conn.responseCode } catch (_: Exception) { -1 }
+                    val headers = conn.headerFields ?: emptyMap()
+                    val headerMap = headers
+                        .filterKeys { it != null }
+                        .mapKeys { it.key.lowercase() }
+                        .mapValues { it.value.firstOrNull() ?: "" }
+                    buildResult(normalizedUrl, headerMap, responseCode)
+                } finally {
+                    conn.disconnect()
+                }
             } catch (ex: Exception) {
                 HttpHeadersResult(
                     url = normalizedUrl,

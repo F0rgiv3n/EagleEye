@@ -41,19 +41,21 @@ class DnsBenchmark {
         val times   = mutableListOf<Long>()
         var success = 0
         repeat(5) {
+            val socket = DatagramSocket()
+            socket.soTimeout = 2000
             try {
-                val socket = DatagramSocket()
-                socket.soTimeout = 2000
-                val addr   = InetAddress.getByName(ip)
-                val send   = DatagramPacket(dnsQuery, dnsQuery.size, addr, 53)
-                val recv   = DatagramPacket(ByteArray(512), 512)
-                val start  = System.currentTimeMillis()
+                val addr  = InetAddress.getByName(ip)
+                val send  = DatagramPacket(dnsQuery, dnsQuery.size, addr, 53)
+                val recv  = DatagramPacket(ByteArray(512), 512)
+                val start = System.currentTimeMillis()
                 socket.send(send)
                 socket.receive(recv)
                 times += System.currentTimeMillis() - start
                 success++
+            } catch (_: Exception) {
+            } finally {
                 socket.close()
-            } catch (_: Exception) {}
+            }
         }
         return DnsServerResult(
             server      = ip,

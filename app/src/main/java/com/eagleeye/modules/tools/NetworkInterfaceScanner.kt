@@ -115,9 +115,10 @@ class NetworkInterfaceScanner {
 
             val hasConnectivity = if (global != null) {
                 try {
-                    val s = Socket()
-                    s.connect(InetSocketAddress("ipv6.google.com", 80), 3000)
-                    s.close(); true
+                    Socket().use { s ->
+                        s.connect(InetSocketAddress("ipv6.google.com", 80), 3000)
+                        true
+                    }
                 } catch (_: Exception) { false }
             } else false
 

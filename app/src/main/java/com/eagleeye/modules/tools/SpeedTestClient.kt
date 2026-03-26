@@ -41,16 +41,18 @@ class SpeedTestClient {
     private fun measurePing(): Long {
         val samples = mutableListOf<Long>()
         repeat(4) {
+            val conn = URL(pingUrl).openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
             try {
                 val start = System.currentTimeMillis()
-                val conn = URL(pingUrl).openConnection() as HttpURLConnection
-                conn.connectTimeout = 3000
-                conn.readTimeout = 3000
                 conn.connect()
                 conn.responseCode
-                conn.disconnect()
                 samples.add(System.currentTimeMillis() - start)
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            } finally {
+                conn.disconnect()
+            }
         }
         return if (samples.isEmpty()) -1L else samples.average().toLong()
     }
@@ -59,23 +61,26 @@ class SpeedTestClient {
         val conn = URL(downloadUrl).openConnection() as HttpURLConnection
         conn.connectTimeout = 10_000
         conn.readTimeout = 30_000
-        val start = System.currentTimeMillis()
-        val input = conn.inputStream
-        val buf = ByteArray(65_536)
-        var totalBytes = 0L
-        val contentLength = conn.contentLength.toLong().coerceAtLeast(10_000_000L)
-        while (true) {
-            val n = input.read(buf)
-            if (n < 0) break
-            totalBytes += n
+        try {
+            val start = System.currentTimeMillis()
+            val input = conn.inputStream
+            val buf = ByteArray(65_536)
+            var totalBytes = 0L
+            val contentLength = conn.contentLength.toLong().coerceAtLeast(10_000_000L)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                totalBytes += n
+                val elapsed = (System.currentTimeMillis() - start).coerceAtLeast(1)
+                val mbps = totalBytes * 8f / (elapsed / 1000f) / 1_000_000f
+                onUpdate((totalBytes.toFloat() / contentLength).coerceIn(0f, 1f), mbps)
+            }
+            input.close()
             val elapsed = (System.currentTimeMillis() - start).coerceAtLeast(1)
-            val mbps = totalBytes * 8f / (elapsed / 1000f) / 1_000_000f
-            onUpdate((totalBytes.toFloat() / contentLength).coerceIn(0f, 1f), mbps)
+            return totalBytes * 8f / (elapsed / 1000f) / 1_000_000f
+        } finally {
+            conn.disconnect()
         }
-        input.close()
-        conn.disconnect()
-        val elapsed = (System.currentTimeMillis() - start).coerceAtLeast(1)
-        return totalBytes * 8f / (elapsed / 1000f) / 1_000_000f
     }
 
     private fun measureUpload(onUpdate: (Float, Float) -> Unit): Float {
@@ -86,21 +91,24 @@ class SpeedTestClient {
         conn.setRequestProperty("Content-Type", "application/octet-stream")
         conn.connectTimeout = 10_000
         conn.readTimeout = 30_000
-        val start = System.currentTimeMillis()
-        val out = conn.outputStream
-        val chunk = 65_536
-        var sent = 0
-        while (sent < payload.size) {
-            val end = minOf(sent + chunk, payload.size)
-            out.write(payload, sent, end - sent)
-            sent = end
+        try {
+            val start = System.currentTimeMillis()
+            val out = conn.outputStream
+            val chunk = 65_536
+            var sent = 0
+            while (sent < payload.size) {
+                val end = minOf(sent + chunk, payload.size)
+                out.write(payload, sent, end - sent)
+                sent = end
+                val elapsed = (System.currentTimeMillis() - start).coerceAtLeast(1)
+                onUpdate(sent.toFloat() / payload.size, sent * 8f / (elapsed / 1000f) / 1_000_000f)
+            }
+            out.flush(); out.close()
+            runCatching { conn.responseCode }
             val elapsed = (System.currentTimeMillis() - start).coerceAtLeast(1)
-            onUpdate(sent.toFloat() / payload.size, sent * 8f / (elapsed / 1000f) / 1_000_000f)
+            return sent * 8f / (elapsed / 1000f) / 1_000_000f
+        } finally {
+            conn.disconnect()
         }
-        out.flush(); out.close()
-        runCatching { conn.responseCode }
-        conn.disconnect()
-        val elapsed = (System.currentTimeMillis() - start).coerceAtLeast(1)
-        return sent * 8f / (elapsed / 1000f) / 1_000_000f
     }
 }

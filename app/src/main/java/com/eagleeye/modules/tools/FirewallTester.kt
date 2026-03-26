@@ -50,15 +50,16 @@ class FirewallTester {
         }
 
     private fun testPort(port: Int, service: String): PortBlockResult {
+        val socket = Socket()
         return try {
-            val socket = Socket()
-            val start  = System.currentTimeMillis()
+            val start = System.currentTimeMillis()
             socket.connect(InetSocketAddress(TEST_HOST, port), 3000)
             val latency = System.currentTimeMillis() - start
-            socket.close()
             PortBlockResult(port, service, true, latency)
         } catch (_: Exception) {
             PortBlockResult(port, service, false, -1L)
+        } finally {
+            runCatching { socket.close() }
         }
     }
 }

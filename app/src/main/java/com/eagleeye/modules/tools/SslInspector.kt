@@ -14,6 +14,15 @@ class SslInspector {
 
     suspend fun inspect(host: String, port: Int = 443): SslCertInfo =
         withContext(Dispatchers.IO) {
+            if (host.isBlank() || port <= 0 || port > 65535) {
+                return@withContext SslCertInfo(
+                    host = host, port = port, subject = "", issuer = "",
+                    validFrom = "", validUntil = "", isExpired = false,
+                    daysUntilExpiry = -1, isSelfSigned = false,
+                    protocol = "", cipherSuite = "", isWeak = false,
+                    grade = SslGrade.ERROR, error = "Invalid host or port"
+                )
+            }
             try {
                 var cert: X509Certificate? = null
                 var protocol = ""
