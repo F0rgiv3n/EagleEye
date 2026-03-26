@@ -1,6 +1,9 @@
 package com.eagleeye.modules.wifi
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
@@ -11,7 +14,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import java.net.InetAddress
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 class WifiRepository(private val context: Context) {
 
@@ -67,7 +72,34 @@ class WifiRepository(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    fun getScanResults(): List<ScannedNetwork> {
+    suspend fun getScanResults(): List<ScannedNetwork> {
+        // Trigger a fresh scan and wait for the system broadcast (up to 10 s).
+        // On Android 9+ startScan() may be throttled (returns false) but the system
+        // still delivers a SCAN_RESULTS_AVAILABLE_ACTION with the latest cache.
+        val received = withTimeoutOrNull(10_000) {
+            suspendCancellableCoroutine { cont ->
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(ctx: Context, intent: Intent) {
+                        runCatching { context.unregisterReceiver(this) }
+                        if (cont.isActive) cont.resume(Unit)
+                    }
+                }
+                context.registerReceiver(
+                    receiver,
+                    IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
+                )
+                wifiManager.startScan()
+                cont.invokeOnCancellation {
+                    runCatching { context.unregisterReceiver(receiver) }
+                }
+            }
+        }
+
+        // If broadcast never arrived fall through and return whatever is cached
+        return readScanResults()
+    }
+
+    private fun readScanResults(): List<ScannedNetwork> {
         return wifiManager.scanResults?.map { result ->
             ScannedNetwork(
                 ssid = if (result.SSID.isNullOrEmpty()) "<Hidden>" else result.SSID,

@@ -1,6 +1,7 @@
 package com.eagleeye.modules.tools
 
 import com.eagleeye.data.GeoPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -10,15 +11,22 @@ import java.net.URL
 
 class GeoIpClient {
 
-    /** Resolve the device's own public IP and location. */
+    /** Resolve the device's own public IP and location. Returns null on failure. */
     suspend fun resolveHome(): GeoPoint? = withContext(Dispatchers.IO) {
         val conn = URL("http://ip-api.com/json?fields=query,status,lat,lon,country,countryCode,city,isp")
             .openConnection() as HttpURLConnection
         conn.connectTimeout = 6000; conn.readTimeout = 6000
         try {
-            val obj = JSONObject(conn.inputStream.bufferedReader().readText())
+            val body = if (conn.responseCode == 200)
+                conn.inputStream.bufferedReader().readText()
+            else
+                conn.errorStream?.bufferedReader()?.readText() ?: ""
+            val obj = JSONObject(body)
             if (obj.optString("status") == "success") parsePoint(obj, isHome = true) else null
-        } catch (_: Exception) { null } finally { conn.disconnect() }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        } finally { conn.disconnect() }
     }
 
     /** Batch-resolve up to 100 IPs. Returns only successful results. */
@@ -31,13 +39,22 @@ class GeoIpClient {
         conn.setRequestProperty("Content-Type", "application/json")
         conn.connectTimeout = 8000; conn.readTimeout = 8000
         try {
-            conn.outputStream.write(JSONArray(ips.take(100)).toString().toByteArray())
-            val arr = JSONArray(conn.inputStream.bufferedReader().readText())
+            val body = JSONArray(ips.take(100)).toString().toByteArray()
+            conn.outputStream.write(body)
+            conn.outputStream.flush()
+            val response = if (conn.responseCode == 200)
+                conn.inputStream.bufferedReader().readText()
+            else
+                conn.errorStream?.bufferedReader()?.readText() ?: "[]"
+            val arr = JSONArray(response)
             (0 until arr.length())
-                .map { arr.getJSONObject(it) }
+                .mapNotNull { arr.optJSONObject(it) }
                 .filter { it.optString("status") == "success" }
                 .map { parsePoint(it) }
-        } catch (_: Exception) { emptyList() } finally { conn.disconnect() }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            emptyList()
+        } finally { conn.disconnect() }
     }
 
     private fun parsePoint(obj: JSONObject, isHome: Boolean = false) = GeoPoint(

@@ -229,16 +229,28 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
     val geoPoints: StateFlow<List<com.eagleeye.data.GeoPoint>> = _geoPoints.asStateFlow()
     private val _geoRunning = MutableStateFlow(false)
     val geoRunning: StateFlow<Boolean> = _geoRunning.asStateFlow()
+    private val _geoError = MutableStateFlow<String?>(null)
+    val geoError: StateFlow<String?> = _geoError.asStateFlow()
 
     fun loadGeoMap(extraIps: List<String> = emptyList()) {
         viewModelScope.launch(Dispatchers.IO) {
             _geoRunning.value = true
-            val home = geoClient.resolveHome()
-            _geoHome.value = home
-            val defaultIps = listOf("8.8.8.8", "1.1.1.1", "9.9.9.9", "208.67.222.222") + extraIps
-            val toResolve = defaultIps.distinct().filter { it != home?.ip }
-            _geoPoints.value = geoClient.resolveIps(toResolve)
-            _geoRunning.value = false
+            _geoError.value = null
+            try {
+                val home = geoClient.resolveHome()
+                _geoHome.value = home
+                if (home == null) {
+                    _geoError.value = "Could not reach ip-api.com — check internet connection"
+                    return@launch
+                }
+                val defaultIps = listOf("8.8.8.8", "1.1.1.1", "9.9.9.9", "208.67.222.222") + extraIps
+                val toResolve = defaultIps.distinct().filter { it != home.ip }
+                _geoPoints.value = geoClient.resolveIps(toResolve)
+            } catch (_: Exception) {
+                _geoError.value = "Network error — tap ↻ to retry"
+            } finally {
+                _geoRunning.value = false
+            }
         }
     }
 

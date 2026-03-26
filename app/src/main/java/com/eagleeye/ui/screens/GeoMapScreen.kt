@@ -78,6 +78,7 @@ fun GeoMapScreen(
     val home by toolsViewModel.geoHome.collectAsState()
     val points by toolsViewModel.geoPoints.collectAsState()
     val isRunning by toolsViewModel.geoRunning.collectAsState()
+    val geoError by toolsViewModel.geoError.collectAsState()
     var addIpText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -239,15 +240,23 @@ fun GeoMapScreen(
                     drawContext.canvas.nativeCanvas.drawText("YOU", homePos.x, homePos.y - 11.dp.toPx(), labelPaint)
                 }
 
-                // Loading hint
+                // Loading hint / error
                 if (homePos == null && !isRunning) {
                     val hintPaint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.argb(100, 0, 255, 136)
                         textSize = 12.sp.toPx()
                         textAlign = android.graphics.Paint.Align.CENTER
                         isAntiAlias = true
                     }
-                    drawContext.canvas.nativeCanvas.drawText("Tap ↻ to load map", w / 2, h / 2, hintPaint)
+                    if (geoError != null) {
+                        hintPaint.color = android.graphics.Color.argb(200, 255, 80, 80)
+                        drawContext.canvas.nativeCanvas.drawText(geoError!!, w / 2, h / 2 - 14.sp.toPx(), hintPaint)
+                        hintPaint.color = android.graphics.Color.argb(120, 200, 200, 200)
+                        hintPaint.textSize = 10.sp.toPx()
+                        drawContext.canvas.nativeCanvas.drawText("Tap ↻ to retry", w / 2, h / 2 + 4.sp.toPx(), hintPaint)
+                    } else {
+                        hintPaint.color = android.graphics.Color.argb(100, 0, 255, 136)
+                        drawContext.canvas.nativeCanvas.drawText("Tap ↻ to load map", w / 2, h / 2, hintPaint)
+                    }
                 }
             }
 
