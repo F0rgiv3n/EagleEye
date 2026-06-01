@@ -1,6 +1,70 @@
 # EagleEye
 
-Android cybersecurity & network intelligence tool. Built for Wi-Fi analysis, LAN scanning, threat detection, and network auditing.
+> A native Android cybersecurity tool for Wi-Fi analysis, LAN scanning, threat detection, and network auditing. ~16k lines of Kotlin across 80+ files, fully written in Jetpack Compose.
+
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-1.7-4285F4?logo=jetpackcompose&logoColor=white)
+![Min SDK](https://img.shields.io/badge/min%20SDK-26%20(Android%208.0)-3DDC84?logo=android&logoColor=white)
+![Target SDK](https://img.shields.io/badge/target%20SDK-35%20(Android%2015)-3DDC84?logo=android&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+## Highlights
+
+- **28 network tools** in one app: ping, traceroute, port scan, DNS resolver, WHOIS, SSL inspector, VPN leak test, CVE lookup, speed test, mDNS discovery, IPv6 inspector, packet analyzer (VpnService, no root), and more.
+- **Threat detection engine** — ARP-spoof / MITM detection, evil-twin detection, DNS hijack detection, rogue DHCP server detection, weak-Wi-Fi audit, captive portal analyzer, with severity-scored events.
+- **LAN scanner** with vendor lookup (OUI database), port fingerprinting, IoT device profiling (SSDP/UPnP), latency tracking, and persistent device history.
+- **Background monitor** as a foreground service — periodic re-scans, threat notifications, persistent event log, home-screen widget with the current security grade.
+- **MAC randomization** tools (root) — per-SSID profiles, auto-rotation, custom MACs.
+- **Modern architecture** — single-Activity Compose UI, MVVM with `StateFlow`, Room for persistence, `DataStore` for settings, `viewModelScope` + structured concurrency throughout, `VpnService` for packet inspection.
+
+## Tech stack
+
+| Layer | Choice |
+|-------|--------|
+| Language | Kotlin 2.0, coroutines + Flow |
+| UI | Jetpack Compose (Material 3), Compose Navigation pattern via sealed `Screen` |
+| Persistence | Room (3 tables), DataStore Preferences |
+| Background work | Foreground `Service` with `FOREGROUND_SERVICE_CONNECTED_DEVICE` type |
+| Packet capture | `VpnService` (no root required) |
+| Build | Gradle Kotlin DSL, version catalog, AGP 8.4 |
+
+## Architecture
+
+```
+app/
+├── MainActivity.kt           single Activity, sealed Screen routing, AnimatedContent crossfade
+├── data/                     immutable domain models + Room entities/DAOs
+├── modules/
+│   ├── wifi/                 WifiRepository + observers (broadcast-aware scan results)
+│   ├── lan/                  parallel ICMP/ARP scanner + OUI lookup
+│   ├── security/             ThreatDetector → ARP/evil-twin/DNS/weak-Wi-Fi checks
+│   ├── monitor/              foreground service + scheduled MonitorEngine cycles
+│   ├── packet/               VpnService capture + PacketParser (TCP/UDP/ICMP, DNS extraction)
+│   ├── tools/                28 individual network tools (ping, traceroute, …)
+│   ├── mac/                  MAC randomization (root via su)
+│   ├── iot/                  SSDP discovery + device profiling
+│   ├── bluetooth/            Classic + BLE scanner
+│   ├── cve/                  NVD CVE lookup
+│   ├── export/               JSON / text report exporter
+│   └── settings/             DataStore-backed settings repo
+├── ui/
+│   ├── screens/              one Composable per top-level screen
+│   └── theme/                Color / Typography / Theme (Material 3 dark)
+└── widget/                   home-screen security-grade widget
+```
+
+## Build & run
+
+```bash
+ANDROID_HOME=$ANDROID_HOME ./gradlew assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+Min device: Android 8.0 (API 26). Some features (MAC change, deauth detection) require root.
+
+## Screenshots
+
+> _Screenshots and demo GIF live in `docs/screenshots/` — capture from a connected device with `adb exec-out screencap -p > docs/screenshots/dashboard.png`._
 
 ---
 

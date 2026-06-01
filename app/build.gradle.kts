@@ -67,4 +67,7 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
