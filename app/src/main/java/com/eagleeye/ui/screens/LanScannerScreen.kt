@@ -48,8 +48,10 @@ private enum class LanFilter { ALL, ONLINE, UNKNOWN, HAS_PORTS }
 fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null, wifiViewModel: WifiViewModel? = null) {
     val scanState by viewModel.scanState.collectAsState()
     val savedDevices by viewModel.savedDevices.collectAsState()
-    val iotProfiles by (iotViewModel?.profiles ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
-    val iotScanning by (iotViewModel?.scanning ?: kotlinx.coroutines.flow.MutableStateFlow(false)).collectAsState()
+    val emptyProfilesFlow = remember { kotlinx.coroutines.flow.MutableStateFlow<Map<String, com.eagleeye.data.IoTProfile>>(emptyMap()) }
+    val falseFlow = remember { kotlinx.coroutines.flow.MutableStateFlow(false) }
+    val iotProfiles by (iotViewModel?.profiles ?: emptyProfilesFlow).collectAsState()
+    val iotScanning by (iotViewModel?.scanning ?: falseFlow).collectAsState()
     val scanHistory by viewModel.scanHistory.collectAsState()
 
     var showTopology by remember { mutableStateOf(false) }
@@ -79,7 +81,8 @@ fun LanScannerScreen(viewModel: LanViewModel, iotViewModel: IoTViewModel? = null
         }
     }
 
-    val connectionInfo by (wifiViewModel?.connectionInfo ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
+    val emptyConnectionFlow = remember { kotlinx.coroutines.flow.MutableStateFlow<com.eagleeye.data.WifiConnectionInfo?>(null) }
+    val connectionInfo by (wifiViewModel?.connectionInfo ?: emptyConnectionFlow).collectAsState()
     val gatewayIp = connectionInfo?.gateway?.takeIf { it.isNotBlank() && it != "0.0.0.0" }
         ?: remember(devices) {
             val firstOnline = devices.firstOrNull { it.isOnline }

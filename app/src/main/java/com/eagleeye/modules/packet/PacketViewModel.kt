@@ -36,6 +36,10 @@ class PacketViewModel(app: Application) : AndroidViewModel(app) {
     private val dnsQuerySet = Collections.synchronizedSet(LinkedHashSet<String>())
     private val destCounts = ConcurrentHashMap<String, Int>()
 
+    // Caps to prevent unbounded growth during long capture sessions.
+    private val MAX_DNS_QUERIES = 200
+    private val MAX_DEST_HOSTS = 1000
+
     private fun isPrivateIp(ip: String): Boolean {
         return ip.startsWith("192.168.") ||
                ip.startsWith("10.") ||
@@ -66,10 +70,20 @@ class PacketViewModel(app: Application) : AndroidViewModel(app) {
                     else -> {}
                 }
                 if (packet.dnsQuery.isNotEmpty()) {
-                    dnsQuerySet.add(packet.dnsQuery)
+                    if (dnsQuerySet.add(packet.dnsQuery) && dnsQuerySet.size > MAX_DNS_QUERIES) {
+                        synchronized(dnsQuerySet) {
+                            val it = dnsQuerySet.iterator()
+                            if (it.hasNext()) { it.next(); it.remove() }
+                        }
+                    }
                 }
                 if (!isPrivateIp(packet.dstIp)) {
                     destCounts[packet.dstIp] = (destCounts[packet.dstIp] ?: 0) + 1
+                    if (destCounts.size > MAX_DEST_HOSTS) {
+                        // Keep the top 500 by count; drop the rest.
+                        val top = destCounts.entries.sortedByDescending { it.value }.take(500).map { it.key }.toSet()
+                        destCounts.keys.retainAll(top)
+                    }
                 }
 
                 // Only recompute and emit stats every 20 packets to avoid excessive recompositions

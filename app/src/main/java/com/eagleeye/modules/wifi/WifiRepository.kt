@@ -76,7 +76,7 @@ class WifiRepository(private val context: Context) {
         // Trigger a fresh scan and wait for the system broadcast (up to 10 s).
         // On Android 9+ startScan() may be throttled (returns false) but the system
         // still delivers a SCAN_RESULTS_AVAILABLE_ACTION with the latest cache.
-        val received = withTimeoutOrNull(10_000) {
+        withTimeoutOrNull(10_000) {
             suspendCancellableCoroutine { cont ->
                 val receiver = object : BroadcastReceiver() {
                     override fun onReceive(ctx: Context, intent: Intent) {
@@ -95,7 +95,6 @@ class WifiRepository(private val context: Context) {
             }
         }
 
-        // If broadcast never arrived fall through and return whatever is cached
         return readScanResults()
     }
 

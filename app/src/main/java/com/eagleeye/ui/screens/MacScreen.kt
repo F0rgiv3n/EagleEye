@@ -38,6 +38,7 @@ fun MacScreen(viewModel: MacViewModel) {
     val result by viewModel.actionResult.collectAsState()
     val profiles by viewModel.profiles.collectAsState()
     val newMacPreview by viewModel.newMacPreview.collectAsState()
+    val currentSsid by viewModel.currentSsid.collectAsState()
 
     // Load MAC info on first open
     LaunchedEffect(Unit) {
@@ -109,7 +110,7 @@ fun MacScreen(viewModel: MacViewModel) {
             // Per-network profiles
             ProfilesCard(
                 profiles = profiles,
-                currentSsid = viewModel.currentSsid,
+                currentSsid = currentSsid,
                 onSave = { ssid, mac, rotate, hours ->
                     viewModel.saveProfile(ssid, mac, rotate, hours)
                 },

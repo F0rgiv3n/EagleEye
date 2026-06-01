@@ -29,9 +29,12 @@ class MacViewModel(application: Application) : AndroidViewModel(application) {
     val profiles: StateFlow<List<MacProfile>> = repository.profiles
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    private val _currentSsid = MutableStateFlow("")
+    val currentSsid: StateFlow<String> = _currentSsid.asStateFlow()
+
     @Suppress("DEPRECATION")
-    val currentSsid: String
-        get() = (getApplication<Application>()
+    private fun fetchCurrentSsid(): String =
+        (getApplication<Application>()
             .getSystemService(android.content.Context.WIFI_SERVICE) as WifiManager)
             .connectionInfo?.ssid?.removePrefix("\"")?.removeSuffix("\"") ?: ""
 
@@ -40,6 +43,7 @@ class MacViewModel(application: Application) : AndroidViewModel(application) {
             _loading.value = true
             try {
                 _macInfo.value = repository.getMacInfo()
+                _currentSsid.value = fetchCurrentSsid()
             } finally {
                 _loading.value = false
             }

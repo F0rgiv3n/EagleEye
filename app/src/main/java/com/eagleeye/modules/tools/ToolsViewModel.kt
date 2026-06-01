@@ -548,7 +548,7 @@ class ToolsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _whoisRunning.value = true
             val result = whoisClient.lookup(q)
-            if (result?.error == null && result != null) whoisCache[q] = result
+            if (result != null && result.error == null) whoisCache[q] = result
             _whoisResult.value = result
             _whoisRunning.value = false
         }
