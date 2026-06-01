@@ -1,9 +1,13 @@
 package com.eagleeye.modules.packet
 
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.VpnService
+import android.os.Build
 import android.os.ParcelFileDescriptor
+import androidx.core.app.ServiceCompat
 import com.eagleeye.data.CapturedPacket
+import com.eagleeye.modules.monitor.NotificationHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,7 +30,12 @@ class PacketCaptureService : VpnService() {
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var serviceScope: CoroutineScope? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        NotificationHelper.createChannels(this)
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return when (intent?.action) {
@@ -38,6 +47,14 @@ class PacketCaptureService : VpnService() {
 
     private fun startCapture() {
         if (isRunning) return
+
+        // Must call startForeground before establishing VPN on Android 12+,
+        // otherwise the system kills the service or throws FGS-not-allowed.
+        val notification = NotificationHelper.buildPacketCaptureNotification(this)
+        val fgType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
+        ServiceCompat.startForeground(this, NotificationHelper.PACKET_FG_ID, notification, fgType)
+
         val builder = Builder()
             .setSession("EagleEye Packet Analyzer")
             .addAddress("10.0.0.2", 32)
@@ -45,10 +62,14 @@ class PacketCaptureService : VpnService() {
             .addDnsServer("8.8.8.8")
             .setMtu(1500)
             .setBlocking(true)
-        vpnInterface = builder.establish() ?: return
+        vpnInterface = builder.establish() ?: run {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            return
+        }
         isRunning = true
 
-        serviceScope.launch {
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob()).also { serviceScope = it }
+        scope.launch {
             val fd = vpnInterface?.fileDescriptor ?: return@launch
             val inputStream = FileInputStream(fd)
             @Suppress("UNUSED_VARIABLE")
@@ -69,9 +90,11 @@ class PacketCaptureService : VpnService() {
 
     private fun stopCapture() {
         isRunning = false
-        serviceScope.cancel()
-        vpnInterface?.close()
+        serviceScope?.cancel()
+        serviceScope = null
+        runCatching { vpnInterface?.close() }
         vpnInterface = null
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
     }
 
     override fun onDestroy() {

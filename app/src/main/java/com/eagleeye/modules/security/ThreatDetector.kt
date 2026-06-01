@@ -143,7 +143,8 @@ class ThreatDetector(private val context: Context) {
         val currentSsid = currentInfo.ssid?.removePrefix("\"")?.removeSuffix("\"") ?: return CheckResult()
         val currentBssid = currentInfo.bssid ?: return CheckResult()
 
-        val scanResults = wifiManager.scanResults ?: return CheckResult()
+        val scanResults = try { wifiManager.scanResults } catch (e: SecurityException) { null }
+            ?: return CheckResult()
 
         val duplicates = scanResults.filter { result ->
             val ssid = result.SSID?.removePrefix("\"")?.removeSuffix("\"") ?: ""
@@ -248,7 +249,8 @@ class ThreatDetector(private val context: Context) {
     @Suppress("DEPRECATION")
     private fun checkAdditionalThreats(): List<Threat> {
         val threats = mutableListOf<Threat>()
-        val scanResults = wifiManager.scanResults ?: return threats
+        val scanResults = try { wifiManager.scanResults } catch (e: SecurityException) { null }
+            ?: return threats
         val currentBssid = wifiManager.connectionInfo?.bssid
 
         // Hidden SSID warning
@@ -286,9 +288,9 @@ class ThreatDetector(private val context: Context) {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     @Suppress("DEPRECATION")
-    private fun getCurrentScanResult() = wifiManager.scanResults?.firstOrNull {
-        it.BSSID == wifiManager.connectionInfo?.bssid
-    }
+    private fun getCurrentScanResult() = try {
+        wifiManager.scanResults?.firstOrNull { it.BSSID == wifiManager.connectionInfo?.bssid }
+    } catch (e: SecurityException) { null }
 
     private fun readArpTable(): List<ArpEntry> {
         return try {

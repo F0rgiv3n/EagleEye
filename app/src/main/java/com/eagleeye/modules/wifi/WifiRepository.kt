@@ -100,7 +100,8 @@ class WifiRepository(private val context: Context) {
     }
 
     private fun readScanResults(): List<ScannedNetwork> {
-        return wifiManager.scanResults?.map { result ->
+        val results = try { wifiManager.scanResults } catch (e: SecurityException) { null }
+        return results?.map { result ->
             ScannedNetwork(
                 ssid = if (result.SSID.isNullOrEmpty()) "<Hidden>" else result.SSID,
                 bssid = result.BSSID ?: "",
@@ -114,7 +115,8 @@ class WifiRepository(private val context: Context) {
 
     @Suppress("DEPRECATION")
     private fun getSecurityType(): String {
-        val scanResult = wifiManager.scanResults?.firstOrNull { result ->
+        val results = try { wifiManager.scanResults } catch (e: SecurityException) { null } ?: return ""
+        val scanResult = results.firstOrNull { result ->
             val currentBssid = wifiManager.connectionInfo?.bssid
             result.BSSID == currentBssid
         }

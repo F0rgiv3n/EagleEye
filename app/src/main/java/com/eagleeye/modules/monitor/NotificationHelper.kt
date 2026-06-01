@@ -15,7 +15,9 @@ object NotificationHelper {
 
     const val CHANNEL_THREATS  = "eagleeye_threats"
     const val CHANNEL_MONITOR  = "eagleeye_monitor"
+    const val CHANNEL_PACKET   = "eagleeye_packet"
     const val FOREGROUND_ID    = 1001
+    const val PACKET_FG_ID     = 1002
     private var notifId        = 2000
 
     fun createChannels(context: Context) {
@@ -41,7 +43,27 @@ object NotificationHelper {
                 description = "Persistent notification while monitoring is active"
             }
         )
+
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_PACKET,
+                "Packet Capture",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Persistent notification while the packet analyzer is capturing"
+            }
+        )
     }
+
+    fun buildPacketCaptureNotification(context: Context) =
+        NotificationCompat.Builder(context, CHANNEL_PACKET)
+            .setSmallIcon(android.R.drawable.ic_menu_view)
+            .setContentTitle("EagleEye Packet Analyzer")
+            .setContentText("Capturing traffic — internet is paused")
+            .setOngoing(true)
+            .setSilent(true)
+            .setContentIntent(launchIntent(context))
+            .build()
 
     fun buildForegroundNotification(context: Context, statusText: String) =
         NotificationCompat.Builder(context, CHANNEL_MONITOR)

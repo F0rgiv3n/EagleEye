@@ -3,8 +3,11 @@ package com.eagleeye.modules.monitor
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.ServiceCompat
 import com.eagleeye.data.EventSeverity
 import com.eagleeye.data.EventType
 import com.eagleeye.data.MonitorConfig
@@ -48,7 +51,9 @@ class MonitorService : Service() {
         val notification = NotificationHelper.buildForegroundNotification(
             this, "Monitoring network — every ${config.intervalMinutes} min"
         )
-        startForeground(NotificationHelper.FOREGROUND_ID, notification)
+        val fgType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0
+        ServiceCompat.startForeground(this, NotificationHelper.FOREGROUND_ID, notification, fgType)
 
         // Log start event
         scope.launch {

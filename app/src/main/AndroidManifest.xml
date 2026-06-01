@@ -53,12 +53,13 @@
 
         <service
             android:name=".modules.monitor.MonitorService"
-            android:foregroundServiceType="dataSync"
+            android:foregroundServiceType="connectedDevice"
             android:exported="false" />
 
         <service
             android:name=".modules.packet.PacketCaptureService"
             android:exported="false"
+            android:foregroundServiceType="connectedDevice"
             android:permission="android.permission.BIND_VPN_SERVICE">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
