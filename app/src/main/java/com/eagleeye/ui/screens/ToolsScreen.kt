@@ -2653,12 +2653,13 @@ private fun MdnsServiceCard(svc: com.eagleeye.data.MdnsService) {
 private fun ArpTool(viewModel: ToolsViewModel) {
     val entries  by viewModel.arpEntries.collectAsState()
     val running  by viewModel.interfacesRunning.collectAsState()
+    var refreshed by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("ARP cache from /proc/net/arp", style = MaterialTheme.typography.bodySmall, color = TextDim)
             OutlinedButton(
-                onClick = { viewModel.refreshInterfaces() },
+                onClick = { refreshed = true; viewModel.refreshInterfaces() },
                 enabled = !running,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberGreen),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CyberGreen.copy(alpha = 0.4f)),
@@ -2673,7 +2674,13 @@ private fun ArpTool(viewModel: ToolsViewModel) {
         }
 
         if (entries.isEmpty() && !running) {
-            Text("Tap Refresh to read ARP table.", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            val msg = if (refreshed && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R)
+                "ARP cache restricted on Android 11+ — kernel returns zero MACs. Use LAN Scanner for active device discovery."
+            else if (refreshed)
+                "ARP cache is empty (no recent peer-to-peer traffic)."
+            else
+                "Tap Refresh to read ARP table."
+            Text(msg, style = MaterialTheme.typography.bodySmall, color = if (refreshed) CyberOrange else TextDim)
         }
 
         entries.forEach { entry ->
