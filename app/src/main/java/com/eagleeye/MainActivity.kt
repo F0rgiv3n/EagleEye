@@ -7,6 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.unit.dp
@@ -165,22 +170,31 @@ fun EagleEyeApp() {
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                when (currentScreen) {
-                    Screen.Dashboard -> DashboardScreen(wifiViewModel, toolsViewModel)
-                    Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
-                    Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel, wifiViewModel)
-                    Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
-                    Screen.Tools -> ToolsScreen(
-                        viewModel = toolsViewModel,
-                        packetViewModel = packetViewModel,
-                        btViewModel = btViewModel,
-                        wifiInfo = wifiInfo,
-                        securityScore = (auditState as? AuditState.Result)?.score,
-                        lanDevices = savedDevices
-                    )
-                    Screen.Mac -> MacScreen(macViewModel)
-                    Screen.Monitor -> MonitorScreen(monitorViewModel)
-                    Screen.Settings -> SettingsScreen(settingsViewModel)
+                AnimatedContent(
+                    targetState = currentScreen,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(220)) togetherWith
+                            fadeOut(animationSpec = tween(120)))
+                    },
+                    label = "screen-transition"
+                ) { screen ->
+                    when (screen) {
+                        Screen.Dashboard -> DashboardScreen(wifiViewModel, toolsViewModel)
+                        Screen.NetworkScan -> NetworkScanScreen(wifiViewModel)
+                        Screen.LanScanner -> LanScannerScreen(lanViewModel, iotViewModel, wifiViewModel)
+                        Screen.Security -> SecurityScreen(securityViewModel, toolsViewModel, wifiViewModel, lanViewModel)
+                        Screen.Tools -> ToolsScreen(
+                            viewModel = toolsViewModel,
+                            packetViewModel = packetViewModel,
+                            btViewModel = btViewModel,
+                            wifiInfo = wifiInfo,
+                            securityScore = (auditState as? AuditState.Result)?.score,
+                            lanDevices = savedDevices
+                        )
+                        Screen.Mac -> MacScreen(macViewModel)
+                        Screen.Monitor -> MonitorScreen(monitorViewModel)
+                        Screen.Settings -> SettingsScreen(settingsViewModel)
+                    }
                 }
             }
         }
