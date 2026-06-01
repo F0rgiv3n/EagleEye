@@ -2,20 +2,27 @@ package com.eagleeye.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// EagleEye Dark Cybersecurity Palette
-val CyberGreen = Color(0xFF00FF88)
-val CyberGreenDim = Color(0xFF00CC6A)
-val CyberBlue = Color(0xFF00D4FF)
-val CyberRed = Color(0xFFFF3B5C)
-val CyberOrange = Color(0xFFFF9500)
-val CyberYellow = Color(0xFFFFD60A)
+// EagleEye palette — refined dark, inspired by Linear/Vercel/GitHub dashboards.
+// The "Cyber*" names are kept for codebase stability; values are softened from
+// the original neon palette to read as a polished security tool rather than
+// a 1990s terminal.
 
-val BackgroundDark = Color(0xFF0A0E1A)
-val SurfaceDark = Color(0xFF111827)
-val SurfaceVariantDark = Color(0xFF1C2537)
-val CardDark = Color(0xFF162032)
-val CardBorderDark = Color(0xFF1E3A5F)
+// Semantic accents (used for severity and state, not for branding)
+val CyberGreen     = Color(0xFF10B981)  // emerald-500 — connected / safe
+val CyberGreenDim  = Color(0xFF059669)  // emerald-600 — darker variant
+val CyberBlue      = Color(0xFF3B82F6)  // blue-500 — info / primary actions
+val CyberRed       = Color(0xFFEF4444)  // red-500 — critical / threats
+val CyberOrange    = Color(0xFFF59E0B)  // amber-500 — warning
+val CyberYellow    = Color(0xFFFACC15)  // yellow-400 — caution / weak security
 
-val TextPrimary = Color(0xFFE8F4FF)
-val TextSecondary = Color(0xFF8BA3C1)
-val TextDim = Color(0xFF4A6080)
+// Surface hierarchy — near-black with subtle warmth, layered tones
+val BackgroundDark     = Color(0xFF0A0A0B)  // canvas
+val SurfaceDark        = Color(0xFF111113)  // tab bar, top bar
+val SurfaceVariantDark = Color(0xFF1A1A1D)  // raised surfaces (dropdowns)
+val CardDark           = Color(0xFF141417)  // cards
+val CardBorderDark     = Color(0xFF26262B)  // subtle borders
+
+// Text hierarchy via opacity-style values
+val TextPrimary   = Color(0xFFF5F5F7)  // primary copy
+val TextSecondary = Color(0xFFA1A1AA)  // secondary / metadata
+val TextDim       = Color(0xFF71717A)  // hints / placeholders / disabled
