@@ -1,10 +1,12 @@
 package com.eagleeye
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.unit.dp
@@ -12,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,7 +55,12 @@ class MainActivity : ComponentActivity() {
             perms.add(Manifest.permission.BLUETOOTH_SCAN)
             perms.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
-        permissionLauncher.launch(perms.toTypedArray())
+        val missing = perms.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            permissionLauncher.launch(missing.toTypedArray())
+        }
 
         setContent {
             EagleEyeTheme {
@@ -95,7 +104,15 @@ fun EagleEyeApp() {
     val settingsViewModel: SettingsViewModel = viewModel()
     val packetViewModel: PacketViewModel = viewModel()
     val btViewModel: BluetoothViewModel = viewModel()
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+    val screenSaver = remember {
+        Saver<Screen, String>(
+            save = { it.route },
+            restore = { route -> bottomNavItems.firstOrNull { s -> s.route == route } ?: Screen.Dashboard }
+        )
+    }
+    var currentScreen: Screen by rememberSaveable(stateSaver = screenSaver) {
+        mutableStateOf(Screen.Dashboard)
+    }
     val unreadCount by monitorViewModel.unreadCount.collectAsState()
     val settings by settingsViewModel.settings.collectAsState()
     val wifiInfo by wifiViewModel.connectionInfo.collectAsState()

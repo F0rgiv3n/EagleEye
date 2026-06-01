@@ -1,8 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    EagleEye is a network analyzer. It deliberately makes cleartext HTTP
+    requests to:
+      - LAN devices (router admin pages, IoT devices on RFC1918 IPs)
+      - Captive portal detection endpoints (must be HTTP by design)
+      - Free-tier ip-api.com (no HTTPS on free tier)
+      - User-supplied URLs in the HTTP request tool
+
+    base-config keeps cleartext globally enabled because IP-range filtering
+    (RFC1918) cannot be expressed in this XML; the known-cleartext domains
+    below are listed as documentation of the intentional cleartext targets.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">ip-api.com</domain>
+        <domain includeSubdomains="false">connectivitycheck.gstatic.com</domain>
+        <domain includeSubdomains="false">clients3.google.com</domain>
+        <domain includeSubdomains="false">detectportal.firefox.com</domain>
+        <domain includeSubdomains="false">www.msftconnecttest.com</domain>
+    </domain-config>
 </network-security-config>

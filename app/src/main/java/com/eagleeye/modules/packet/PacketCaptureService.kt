@@ -1,8 +1,10 @@
 package com.eagleeye.modules.packet
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.VpnService
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.core.app.ServiceCompat
@@ -59,7 +61,7 @@ class PacketCaptureService : VpnService() {
             .setSession("EagleEye Packet Analyzer")
             .addAddress("10.0.0.2", 32)
             .addRoute("0.0.0.0", 0)
-            .addDnsServer("8.8.8.8")
+            .addDnsServer(resolveDnsServer())
             .setMtu(1500)
             .setBlocking(true)
         vpnInterface = builder.establish() ?: run {
@@ -100,5 +102,15 @@ class PacketCaptureService : VpnService() {
     override fun onDestroy() {
         stopCapture()
         super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun resolveDnsServer(): String {
+        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val dns1 = wifi?.dhcpInfo?.dns1 ?: 0
+        if (dns1 != 0) {
+            return "${dns1 and 0xFF}.${(dns1 shr 8) and 0xFF}.${(dns1 shr 16) and 0xFF}.${(dns1 shr 24) and 0xFF}"
+        }
+        return "1.1.1.1"
     }
 }
