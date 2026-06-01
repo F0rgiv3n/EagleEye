@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -140,7 +141,7 @@ private fun MacInfoCard(info: MacInfo) {
         MacType.RANDOMIZED -> Icons.Default.VerifiedUser
         MacType.REAL -> Icons.Default.Warning
         MacType.CUSTOM -> Icons.Default.Edit
-        MacType.UNKNOWN -> Icons.Default.Help
+        MacType.UNKNOWN -> Icons.AutoMirrored.Filled.Help
     }
 
     Column(

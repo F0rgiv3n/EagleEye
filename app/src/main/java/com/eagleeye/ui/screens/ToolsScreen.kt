@@ -17,6 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.ManageSearch
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -134,11 +137,11 @@ private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
         Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
         Tool.SHODAN to (Icons.Default.Radar to "Shodan"),
         Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan"),
-        Tool.WHOIS       to (Icons.Default.ManageSearch to "WHOIS"),
+        Tool.WHOIS       to (Icons.AutoMirrored.Filled.ManageSearch to "WHOIS"),
         Tool.DHCP        to (Icons.Default.Router to "DHCP"),
         Tool.EXPORT      to (Icons.Default.Share to "Export"),
         Tool.SPEED_TEST  to (Icons.Default.Speed to "Speed"),
-        Tool.BANDWIDTH   to (Icons.Default.ShowChart to "BW"),
+        Tool.BANDWIDTH   to (Icons.AutoMirrored.Filled.ShowChart to "BW"),
         Tool.MDNS        to (Icons.Default.Cast to "mDNS"),
         Tool.ARP         to (Icons.Default.TableChart to "ARP"),
         Tool.IPV6        to (Icons.Default.Lan to "IPv6"),
@@ -2322,7 +2325,7 @@ private fun ExportTool(
                 border = BorderStroke(1.dp, if (canExport) CyberBlue.copy(alpha = 0.5f) else TextDim.copy(alpha = 0.2f)),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Icon(Icons.Default.Article, null, modifier = Modifier.size(16.dp))
+                Icon(Icons.AutoMirrored.Filled.Article, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("TEXT", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
             }

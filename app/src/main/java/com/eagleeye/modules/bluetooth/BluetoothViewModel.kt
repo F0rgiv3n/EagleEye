@@ -1,5 +1,7 @@
 package com.eagleeye.modules.bluetooth
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Application
 import android.bluetooth.*
 import android.bluetooth.le.*
@@ -7,7 +9,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.eagleeye.data.BtDevice
@@ -52,6 +56,9 @@ class BluetoothViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    // Permission-gated via hasBleScanPermission() and try/catch SecurityException;
+    // lint can't trace the helper, so the annotation just silences the warning.
+    @SuppressLint("MissingPermission")
     fun startScan() {
         if (_scanning.value) return
         if (adapter == null || !adapter.isEnabled) {
@@ -74,14 +81,17 @@ class BluetoothViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
-        // BLE
+        // BLE — needs BLUETOOTH_SCAN on API 31+; pre-31 it falls under BLUETOOTH_ADMIN
+        // which was granted at install time (no runtime check needed).
         bleScanner = adapter.bluetoothLeScanner
-        try {
-            val settings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .build()
-            bleScanner?.startScan(null, settings, bleScanCallback)
-        } catch (e: Exception) { /* BLE scan failed — Classic still runs */ }
+        if (hasBleScanPermission()) {
+            try {
+                val settings = ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .build()
+                bleScanner?.startScan(null, settings, bleScanCallback)
+            } catch (e: Exception) { /* BLE scan failed — Classic still runs */ }
+        }
 
         // Auto-stop after 15 seconds
         scanJob = viewModelScope.launch {
@@ -90,12 +100,22 @@ class BluetoothViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    @SuppressLint("MissingPermission")
     fun stopScan() {
         _scanning.value = false
         scanJob?.cancel()
         try { adapter?.cancelDiscovery() } catch (_: SecurityException) {}
-        try { bleScanner?.stopScan(bleScanCallback) } catch (_: Exception) {}
+        if (hasBleScanPermission()) {
+            try { bleScanner?.stopScan(bleScanCallback) } catch (_: Exception) {}
+        }
         try { getApplication<Application>().unregisterReceiver(classicReceiver) } catch (_: Exception) {}
+    }
+
+    private fun hasBleScanPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return ContextCompat.checkSelfPermission(
+            getApplication(), Manifest.permission.BLUETOOTH_SCAN
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun addDevice(

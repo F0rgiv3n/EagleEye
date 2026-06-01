@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -141,7 +142,7 @@ fun SecurityScreen(
                         )
                         DropdownMenuItem(
                             text = { Text("Export Text", style = MaterialTheme.typography.bodySmall, color = TextPrimary) },
-                            leadingIcon = { Icon(Icons.Default.Article, null, tint = CyberBlue, modifier = Modifier.size(16.dp)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Article, null, tint = CyberBlue, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 showExportMenu = false
                                 toolsViewModel.exportReport(wifiInfo, score, lanDevices, asJson = false)
