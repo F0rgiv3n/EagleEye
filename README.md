@@ -55,15 +55,30 @@ EagleEye is a deliberately opinionated security tool. Every screen is built arou
 
 ## Screenshots
 
-> Capture from a real device with `adb exec-out screencap -p > docs/screenshots/<name>.png` and drop into `docs/screenshots/`. Five suggested shots:
+All screenshots below were captured from a synthetic `Demo Mode` build (toggle in **Settings → DEMO MODE**) so they show realistic data without exposing any real network. Every MAC uses the IETF-reserved `00:00:5E:*` prefix, every SSID and device name is invented.
 
-| Screen | Filename |
-|--------|----------|
-| Dashboard with signal history | `docs/screenshots/dashboard.png` |
-| LAN scanner with devices listed | `docs/screenshots/lan-scanner.png` |
-| Security audit result | `docs/screenshots/security-audit.png` |
-| Network Tools tab grid | `docs/screenshots/tools.png` |
-| Threat radar / topology | `docs/screenshots/topology.png` |
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/01-dashboard.png" width="220"/><br/><sub><b>Dashboard</b><br/>current connection, signal history, link details</sub></td>
+    <td align="center"><img src="docs/screenshots/02-networks.png" width="220"/><br/><sub><b>Network Scan</b><br/>nearby APs, signal, channel, security grade</sub></td>
+    <td align="center"><img src="docs/screenshots/03-spectrum.png" width="220"/><br/><sub><b>Wi-Fi Spectrum</b><br/>2.4 / 5 GHz channel occupancy + recommendation</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/04-lan.png" width="220"/><br/><sub><b>LAN Scanner</b><br/>discovered devices, vendor, open ports, known/unknown</sub></td>
+    <td align="center"><img src="docs/screenshots/05-security.png" width="220"/><br/><sub><b>Security Audit</b><br/>0–100 score with grade + breakdown + threat list</sub></td>
+    <td align="center"><img src="docs/screenshots/06-radar.png" width="220"/><br/><sub><b>Threat Radar</b><br/>animated sonar sweep, devices ranked by risk</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/07-tools.png" width="220"/><br/><sub><b>Network Tools</b><br/>28-tool grid launcher (ping, traceroute, port scan, …)</sub></td>
+    <td align="center"><img src="docs/screenshots/08-mac.png" width="220"/><br/><sub><b>MAC Privacy</b><br/>randomization state + per-network profiles</sub></td>
+    <td align="center"><img src="docs/screenshots/09-monitor.png" width="220"/><br/><sub><b>Monitor</b><br/>background scan engine event log + 7-day activity</sub></td>
+  </tr>
+  <tr>
+    <td></td>
+    <td align="center"><img src="docs/screenshots/10-settings.png" width="220"/><br/><sub><b>Settings</b><br/>scan interval, API keys, notifications, demo mode</sub></td>
+    <td></td>
+  </tr>
+</table>
 
 ---
 

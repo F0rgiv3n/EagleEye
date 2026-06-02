@@ -55,15 +55,30 @@ Single-Activity Jetpack Compose εφαρμογή που συγκεντρώνει
 
 ## Screenshots
 
-> Τράβα screenshots από πραγματική συσκευή με `adb exec-out screencap -p > docs/screenshots/<name>.png` και βάλε τα στο `docs/screenshots/`. Πέντε προτεινόμενα:
+Όλα τα screenshots παρακάτω τραβήχτηκαν με ενεργοποιημένο το `Demo Mode` (toggle στο **Settings → DEMO MODE**), ώστε να δείχνουν ρεαλιστικά δεδομένα χωρίς να αποκαλύπτουν κανένα πραγματικό δίκτυο. Όλα τα MACs χρησιμοποιούν το IETF-reserved prefix `00:00:5E:*`, όλα τα SSIDs και ονόματα συσκευών είναι επινοημένα.
 
-| Οθόνη | Filename |
-|--------|----------|
-| Dashboard με signal history | `docs/screenshots/dashboard.png` |
-| LAN scanner με λίστα συσκευών | `docs/screenshots/lan-scanner.png` |
-| Αποτέλεσμα security audit | `docs/screenshots/security-audit.png` |
-| Network Tools tab grid | `docs/screenshots/tools.png` |
-| Threat radar / topology | `docs/screenshots/topology.png` |
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/01-dashboard.png" width="220"/><br/><sub><b>Dashboard</b><br/>τρέχουσα σύνδεση, signal history, λεπτομέρειες</sub></td>
+    <td align="center"><img src="docs/screenshots/02-networks.png" width="220"/><br/><sub><b>Network Scan</b><br/>γειτονικά APs, σήμα, κανάλι, security grade</sub></td>
+    <td align="center"><img src="docs/screenshots/03-spectrum.png" width="220"/><br/><sub><b>Wi-Fi Spectrum</b><br/>κατάληψη 2.4 / 5 GHz + recommendation</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/04-lan.png" width="220"/><br/><sub><b>LAN Scanner</b><br/>συσκευές, vendor, open ports, known/unknown</sub></td>
+    <td align="center"><img src="docs/screenshots/05-security.png" width="220"/><br/><sub><b>Security Audit</b><br/>score 0–100 με grade + breakdown + threats</sub></td>
+    <td align="center"><img src="docs/screenshots/06-radar.png" width="220"/><br/><sub><b>Threat Radar</b><br/>animated sonar sweep, συσκευές ταξινομημένες κατά risk</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/07-tools.png" width="220"/><br/><sub><b>Network Tools</b><br/>grid 28 εργαλείων (ping, traceroute, port scan, …)</sub></td>
+    <td align="center"><img src="docs/screenshots/08-mac.png" width="220"/><br/><sub><b>MAC Privacy</b><br/>κατάσταση randomization + per-network profiles</sub></td>
+    <td align="center"><img src="docs/screenshots/09-monitor.png" width="220"/><br/><sub><b>Monitor</b><br/>event log background scan + 7-day activity</sub></td>
+  </tr>
+  <tr>
+    <td></td>
+    <td align="center"><img src="docs/screenshots/10-settings.png" width="220"/><br/><sub><b>Settings</b><br/>scan interval, API keys, notifications, demo mode</sub></td>
+    <td></td>
+  </tr>
+</table>
 
 ---
 
