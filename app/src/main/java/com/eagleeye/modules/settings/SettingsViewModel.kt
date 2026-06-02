@@ -59,6 +59,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         repo.update { copy(autoScanOnConnect = enabled) }
     }
 
+    fun setDemoMode(enabled: Boolean) = viewModelScope.launch {
+        repo.update { copy(demoMode = enabled) }
+    }
+
     fun addTrustedSsid(ssid: String) = viewModelScope.launch {
         if (ssid.isBlank()) return@launch
         repo.update { copy(trustedSsids = trustedSsids + ssid.trim()) }

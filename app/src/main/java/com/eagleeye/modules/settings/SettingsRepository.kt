@@ -26,6 +26,7 @@ class SettingsRepository(private val context: Context) {
         val ABUSE_IPDB_KEY = stringPreferencesKey("abuse_ipdb_key")
         val AUTO_SCAN_ON_CONNECT = booleanPreferencesKey("auto_scan_on_connect")
         val TRUSTED_SSIDS = stringSetPreferencesKey("trusted_ssids")
+        val DEMO_MODE = booleanPreferencesKey("demo_mode")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -42,7 +43,8 @@ class SettingsRepository(private val context: Context) {
             shodanApiKey = prefs[Keys.SHODAN_API_KEY] ?: "",
             abuseIpDbKey = prefs[Keys.ABUSE_IPDB_KEY] ?: "",
             autoScanOnConnect = prefs[Keys.AUTO_SCAN_ON_CONNECT] ?: false,
-            trustedSsids = prefs[Keys.TRUSTED_SSIDS] ?: emptySet()
+            trustedSsids = prefs[Keys.TRUSTED_SSIDS] ?: emptySet(),
+            demoMode = prefs[Keys.DEMO_MODE] ?: false
         )
     }
 
@@ -63,6 +65,7 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.ABUSE_IPDB_KEY] = updated.abuseIpDbKey
             prefs[Keys.AUTO_SCAN_ON_CONNECT] = updated.autoScanOnConnect
             prefs[Keys.TRUSTED_SSIDS] = updated.trustedSsids
+            prefs[Keys.DEMO_MODE] = updated.demoMode
         }
     }
 }

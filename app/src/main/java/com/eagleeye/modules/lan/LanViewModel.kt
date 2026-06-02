@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.eagleeye.data.DemoOverrides
 import com.eagleeye.data.LanDevice
 import com.eagleeye.data.ScanSnapshot
 import com.eagleeye.modules.settings.SettingsRepository
@@ -29,8 +30,10 @@ class LanViewModel(application: Application) : AndroidViewModel(application) {
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
     val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
 
-    val savedDevices: StateFlow<List<LanDevice>> = repository.savedDevices
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val savedDevices: StateFlow<List<LanDevice>> =
+        combine(repository.savedDevices, settingsRepo.settings) { real, settings ->
+            if (settings.demoMode) DemoOverrides.lanDevices else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // ── Scan History (in-session, last 5 snapshots) ───────────────────────────
     private val _scanHistory = MutableStateFlow<List<ScanSnapshot>>(emptyList())

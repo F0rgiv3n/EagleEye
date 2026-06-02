@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.eagleeye.data.*
 import com.eagleeye.data.db.AppDatabase
+import com.eagleeye.modules.settings.SettingsRepository
 import com.eagleeye.widget.SecurityWidgetReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -26,6 +27,7 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
     private val detector = ThreatDetector(application)
     private val dao = AppDatabase.getInstance(application).lanDeviceDao()
     private val eventDao = AppDatabase.getInstance(application).networkEventDao()
+    private val settingsRepo = SettingsRepository(application)
 
     private val _auditState = MutableStateFlow<AuditState>(AuditState.Idle)
     val auditState: StateFlow<AuditState> = _auditState.asStateFlow()
@@ -34,6 +36,10 @@ class SecurityViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             _auditState.value = AuditState.Running
             try {
+                if (settingsRepo.settings.first().demoMode) {
+                    _auditState.value = AuditState.Result(DemoOverrides.securityScore)
+                    return@launch
+                }
                 val unknownCount = dao.getAll().count { !it.isKnown }
                 val score = detector.runFullAudit(unknownCount)
                 _auditState.value = AuditState.Result(score)

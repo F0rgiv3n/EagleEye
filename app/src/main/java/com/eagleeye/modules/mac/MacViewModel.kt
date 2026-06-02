@@ -4,8 +4,10 @@ import android.app.Application
 import android.net.wifi.WifiManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.eagleeye.data.DemoOverrides
 import com.eagleeye.data.MacInfo
 import com.eagleeye.data.MacProfile
+import com.eagleeye.modules.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -13,9 +15,13 @@ import kotlinx.coroutines.launch
 class MacViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = MacRepository(application)
+    private val settingsRepo = SettingsRepository(application)
 
     private val _macInfo = MutableStateFlow<MacInfo?>(null)
-    val macInfo: StateFlow<MacInfo?> = _macInfo.asStateFlow()
+    val macInfo: StateFlow<MacInfo?> =
+        combine(_macInfo, settingsRepo.settings) { real, s ->
+            if (s.demoMode) DemoOverrides.macInfo else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -42,8 +48,13 @@ class MacViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true
             try {
-                _macInfo.value = repository.getMacInfo()
-                _currentSsid.value = fetchCurrentSsid()
+                if (settingsRepo.settings.first().demoMode) {
+                    _macInfo.value = DemoOverrides.macInfo
+                    _currentSsid.value = DemoOverrides.wifiConnection.ssid
+                } else {
+                    _macInfo.value = repository.getMacInfo()
+                    _currentSsid.value = fetchCurrentSsid()
+                }
             } finally {
                 _loading.value = false
             }

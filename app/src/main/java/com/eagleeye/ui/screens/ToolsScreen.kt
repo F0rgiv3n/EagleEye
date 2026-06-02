@@ -12,11 +12,15 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.ManageSearch
 import androidx.compose.material.icons.automirrored.filled.ShowChart
@@ -43,6 +47,39 @@ import com.eagleeye.ui.theme.*
 
 private enum class Tool { PING, TRACEROUTE, PORT_SCAN, DNS, PUBLIC_IP, WAKE_ON_LAN, SSL, VPN_LEAK, CVE, PORTAL, PACKETS, HEADERS, THREAT_INTEL, SHODAN, BT_SCAN, WHOIS, DHCP, EXPORT, SPEED_TEST, BANDWIDTH, MDNS, ARP, IPV6, DNS_BENCH, FIREWALL, INTERFACES, HTTP_CLIENT, CERT_TRANS }
 
+private data class ToolMeta(val tool: Tool, val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val accent: androidx.compose.ui.graphics.Color)
+
+private val TOOL_CATALOG: List<ToolMeta> = listOf(
+    ToolMeta(Tool.PING,        Icons.Default.NetworkPing,                       "Ping",       CyberGreen),
+    ToolMeta(Tool.TRACEROUTE,  Icons.Default.Route,                             "Trace",      CyberGreen),
+    ToolMeta(Tool.PORT_SCAN,   Icons.Default.Search,                            "Ports",      CyberOrange),
+    ToolMeta(Tool.DNS,         Icons.Default.Dns,                               "DNS",        CyberBlue),
+    ToolMeta(Tool.PUBLIC_IP,   Icons.Default.Public,                            "Public IP",  CyberBlue),
+    ToolMeta(Tool.WAKE_ON_LAN, Icons.Default.Power,                             "Wake-LAN",   CyberYellow),
+    ToolMeta(Tool.SSL,         Icons.Default.Lock,                              "SSL",        CyberGreen),
+    ToolMeta(Tool.VPN_LEAK,    Icons.Default.VpnKey,                            "VPN Leak",   CyberOrange),
+    ToolMeta(Tool.CVE,         Icons.Default.BugReport,                         "CVE",        CyberRed),
+    ToolMeta(Tool.PORTAL,      Icons.Default.Sensors,                           "Portal",     CyberBlue),
+    ToolMeta(Tool.PACKETS,     Icons.Default.NetworkCheck,                      "Packets",    CyberGreen),
+    ToolMeta(Tool.HEADERS,     Icons.Default.Security,                          "Headers",    CyberBlue),
+    ToolMeta(Tool.THREAT_INTEL,Icons.Default.GppBad,                            "Threat",     CyberRed),
+    ToolMeta(Tool.SHODAN,      Icons.Default.Radar,                             "Shodan",     CyberRed),
+    ToolMeta(Tool.BT_SCAN,     Icons.Default.Bluetooth,                         "BT Scan",    CyberBlue),
+    ToolMeta(Tool.WHOIS,       Icons.AutoMirrored.Filled.ManageSearch,          "WHOIS",      CyberBlue),
+    ToolMeta(Tool.DHCP,        Icons.Default.Router,                            "DHCP",       CyberYellow),
+    ToolMeta(Tool.EXPORT,      Icons.Default.Share,                             "Export",     CyberGreen),
+    ToolMeta(Tool.SPEED_TEST,  Icons.Default.Speed,                             "Speed",      CyberGreen),
+    ToolMeta(Tool.BANDWIDTH,   Icons.AutoMirrored.Filled.ShowChart,             "Bandwidth",  CyberBlue),
+    ToolMeta(Tool.MDNS,        Icons.Default.Cast,                              "mDNS",       CyberBlue),
+    ToolMeta(Tool.ARP,         Icons.Default.TableChart,                        "ARP",        CyberOrange),
+    ToolMeta(Tool.IPV6,        Icons.Default.Lan,                               "IPv6",       CyberBlue),
+    ToolMeta(Tool.DNS_BENCH,   Icons.Default.Timer,                             "DNS Bench",  CyberGreen),
+    ToolMeta(Tool.FIREWALL,    Icons.Default.Fireplace,                         "Firewall",   CyberOrange),
+    ToolMeta(Tool.INTERFACES,  Icons.Default.AccountTree,                       "Interfaces", CyberBlue),
+    ToolMeta(Tool.HTTP_CLIENT, Icons.Default.Http,                              "HTTP",       CyberGreen),
+    ToolMeta(Tool.CERT_TRANS,  Icons.Default.VerifiedUser,                      "Certs",      CyberGreen),
+)
+
 @Composable
 fun ToolsScreen(
     viewModel: ToolsViewModel,
@@ -52,7 +89,7 @@ fun ToolsScreen(
     securityScore: SecurityScore? = null,
     lanDevices: List<LanDevice> = emptyList()
 ) {
-    var selectedTool by remember { mutableStateOf(Tool.PING) }
+    var selectedTool by remember { mutableStateOf<Tool?>(null) }
     val context = LocalContext.current
     val exportIntent by viewModel.exportIntent.collectAsState()
 
@@ -68,128 +105,123 @@ fun ToolsScreen(
             .fillMaxSize()
             .background(BackgroundDark)
     ) {
-        // Fixed header — does not scroll away
-        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            Text("NETWORK TOOLS", style = MaterialTheme.typography.headlineMedium, color = CyberGreen)
-            Text("Diagnostics & analysis utilities", style = MaterialTheme.typography.bodySmall, color = TextDim)
-            Spacer(modifier = Modifier.height(12.dp))
-            ToolTabRow(selected = selectedTool, onSelect = { selectedTool = it })
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // Scrollable tool content area
-        val scrollState = rememberScrollState()
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(scrollState)
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
-        ) {
-            when (selectedTool) {
-                Tool.PING        -> PingTool(viewModel)
-                Tool.TRACEROUTE  -> TracerouteTool(viewModel)
-                Tool.PORT_SCAN   -> PortScanTool(viewModel)
-                Tool.DNS         -> DnsTool(viewModel)
-                Tool.PUBLIC_IP   -> PublicIpTool(viewModel)
-                Tool.WAKE_ON_LAN -> WakeOnLanTool(viewModel)
-                Tool.SSL         -> SslTool(viewModel)
-                Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
-                Tool.CVE         -> CveTool(viewModel)
-                Tool.PORTAL      -> CaptivePortalTool(viewModel)
-                Tool.PACKETS     -> packetViewModel?.let { PacketAnalyzerTool(it) }
-                Tool.HEADERS     -> HeadersTool(viewModel)
-                Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
-                Tool.SHODAN      -> ShodanTool(viewModel)
-                Tool.BT_SCAN     -> BtScanTool(btViewModel)
-                Tool.WHOIS       -> WhoisTool(viewModel)
-                Tool.DHCP        -> RogueDhcpTool(viewModel)
-                Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
-                Tool.SPEED_TEST  -> SpeedTestTool(viewModel)
-                Tool.BANDWIDTH   -> BandwidthTool(viewModel)
-                Tool.MDNS        -> MdnsTool(viewModel)
-                Tool.ARP         -> ArpTool(viewModel)
-                Tool.IPV6        -> IPv6Tool(viewModel)
-                Tool.DNS_BENCH   -> DnsBenchTool(viewModel)
-                Tool.FIREWALL    -> FirewallTool(viewModel)
-                Tool.INTERFACES  -> InterfacesTool(viewModel)
-                Tool.HTTP_CLIENT -> HttpClientTool(viewModel)
-                Tool.CERT_TRANS  -> CertTransTool(viewModel)
+        if (selectedTool == null) {
+            // ── Grid launcher ──
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                Text("NETWORK TOOLS", style = MaterialTheme.typography.headlineMedium, color = CyberGreen)
+                Text("Tap a tool to begin · ${TOOL_CATALOG.size} utilities available", style = MaterialTheme.typography.bodySmall, color = TextDim)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                items(TOOL_CATALOG) { meta ->
+                    ToolGridTile(meta = meta, onClick = { selectedTool = meta.tool })
+                }
+            }
+        } else {
+            // ── Detail view ──
+            val tool = selectedTool!!
+            val meta = TOOL_CATALOG.firstOrNull { it.tool == tool }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { selectedTool = null }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = CyberGreen)
+                }
+                Spacer(Modifier.weight(1f))
+                meta?.let {
+                    Icon(it.icon, null, tint = it.accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        it.label.uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        ),
+                        color = it.accent,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.width(48.dp))
+            }
+            val scrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+            ) {
+                when (tool) {
+                    Tool.PING        -> PingTool(viewModel)
+                    Tool.TRACEROUTE  -> TracerouteTool(viewModel)
+                    Tool.PORT_SCAN   -> PortScanTool(viewModel)
+                    Tool.DNS         -> DnsTool(viewModel)
+                    Tool.PUBLIC_IP   -> PublicIpTool(viewModel)
+                    Tool.WAKE_ON_LAN -> WakeOnLanTool(viewModel)
+                    Tool.SSL         -> SslTool(viewModel)
+                    Tool.VPN_LEAK    -> VpnLeakTool(viewModel)
+                    Tool.CVE         -> CveTool(viewModel)
+                    Tool.PORTAL      -> CaptivePortalTool(viewModel)
+                    Tool.PACKETS     -> packetViewModel?.let { PacketAnalyzerTool(it) }
+                    Tool.HEADERS     -> HeadersTool(viewModel)
+                    Tool.THREAT_INTEL -> ThreatIntelTool(viewModel)
+                    Tool.SHODAN      -> ShodanTool(viewModel)
+                    Tool.BT_SCAN     -> BtScanTool(btViewModel)
+                    Tool.WHOIS       -> WhoisTool(viewModel)
+                    Tool.DHCP        -> RogueDhcpTool(viewModel)
+                    Tool.EXPORT      -> ExportTool(viewModel, wifiInfo, securityScore, lanDevices)
+                    Tool.SPEED_TEST  -> SpeedTestTool(viewModel)
+                    Tool.BANDWIDTH   -> BandwidthTool(viewModel)
+                    Tool.MDNS        -> MdnsTool(viewModel)
+                    Tool.ARP         -> ArpTool(viewModel)
+                    Tool.IPV6        -> IPv6Tool(viewModel)
+                    Tool.DNS_BENCH   -> DnsBenchTool(viewModel)
+                    Tool.FIREWALL    -> FirewallTool(viewModel)
+                    Tool.INTERFACES  -> InterfacesTool(viewModel)
+                    Tool.HTTP_CLIENT -> HttpClientTool(viewModel)
+                    Tool.CERT_TRANS  -> CertTransTool(viewModel)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ToolTabRow(selected: Tool, onSelect: (Tool) -> Unit) {
-    val tools = listOf(
-        Tool.PING to (Icons.Default.NetworkPing to "Ping"),
-        Tool.TRACEROUTE to (Icons.Default.Route to "Trace"),
-        Tool.PORT_SCAN to (Icons.Default.Search to "Ports"),
-        Tool.DNS to (Icons.Default.Dns to "DNS"),
-        Tool.PUBLIC_IP to (Icons.Default.Public to "IP"),
-        Tool.WAKE_ON_LAN to (Icons.Default.Power to "WoL"),
-        Tool.SSL to (Icons.Default.Lock to "SSL"),
-        Tool.VPN_LEAK to (Icons.Default.VpnKey to "VPN"),
-        Tool.CVE to (Icons.Default.BugReport to "CVE"),
-        Tool.PORTAL to (Icons.Default.Sensors to "Portal"),
-        Tool.PACKETS to (Icons.Default.NetworkCheck to "Packets"),
-        Tool.HEADERS to (Icons.Default.Security to "Headers"),
-        Tool.THREAT_INTEL to (Icons.Default.GppBad to "Threat"),
-        Tool.SHODAN to (Icons.Default.Radar to "Shodan"),
-        Tool.BT_SCAN to (Icons.Default.Bluetooth to "BT Scan"),
-        Tool.WHOIS       to (Icons.AutoMirrored.Filled.ManageSearch to "WHOIS"),
-        Tool.DHCP        to (Icons.Default.Router to "DHCP"),
-        Tool.EXPORT      to (Icons.Default.Share to "Export"),
-        Tool.SPEED_TEST  to (Icons.Default.Speed to "Speed"),
-        Tool.BANDWIDTH   to (Icons.AutoMirrored.Filled.ShowChart to "BW"),
-        Tool.MDNS        to (Icons.Default.Cast to "mDNS"),
-        Tool.ARP         to (Icons.Default.TableChart to "ARP"),
-        Tool.IPV6        to (Icons.Default.Lan to "IPv6"),
-        Tool.DNS_BENCH   to (Icons.Default.Timer to "DNS Bench"),
-        Tool.FIREWALL    to (Icons.Default.Fireplace to "Firewall"),
-        Tool.INTERFACES  to (Icons.Default.AccountTree to "Interfaces"),
-        Tool.HTTP_CLIENT to (Icons.Default.Http to "HTTP"),
-        Tool.CERT_TRANS  to (Icons.Default.VerifiedUser to "Certs")
-    )
-    Row(
+private fun ToolGridTile(meta: ToolMeta, onClick: () -> Unit) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
             .background(SurfaceDark)
-            .horizontalScroll(rememberScrollState())
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+            .border(1.dp, meta.accent.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        tools.forEach { (tool, pair) ->
-            val (icon, label) = pair
-            val isSelected = selected == tool
-            Column(
-                modifier = Modifier
-                    .width(64.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) CyberGreen.copy(alpha = 0.15f) else Color.Transparent)
-                    .border(
-                        1.dp,
-                        if (isSelected) CyberGreen.copy(alpha = 0.4f) else Color.Transparent,
-                        RoundedCornerShape(8.dp)
-                    )
-                    .clickable { onSelect(tool) }
-                    .padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Icon(
-                    icon, null,
-                    tint = if (isSelected) CyberGreen else TextDim,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) CyberGreen else TextDim
-                )
-            }
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(meta.accent.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(meta.icon, null, tint = meta.accent, modifier = Modifier.size(22.dp))
         }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            meta.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = TextPrimary,
+            maxLines = 1
+        )
     }
 }
 

@@ -178,6 +178,17 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             ) { viewModel.setAutoScanOnConnect(it) }
         }
 
+        // Demo mode — for portfolio screenshots
+        SettingsSection(title = "DEMO MODE") {
+            SettingsSwitchRow(
+                icon = Icons.Default.Visibility,
+                label = "Show demo data",
+                subtitle = "Fill LAN, Security, and Monitor with synthetic data so portfolio screenshots don't leak real network state. No live scans run.",
+                checked = settings.demoMode,
+                activeColor = CyberOrange
+            ) { viewModel.setDemoMode(it) }
+        }
+
         // Trusted Networks
         SettingsSection(title = "TRUSTED NETWORKS") {
             Text(

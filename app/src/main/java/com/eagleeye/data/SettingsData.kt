@@ -16,5 +16,8 @@ data class AppSettings(
     // Network automation
     val autoScanOnConnect: Boolean = false,
     // Trusted networks (by SSID)
-    val trustedSsids: Set<String> = emptySet()
+    val trustedSsids: Set<String> = emptySet(),
+    // Demo mode: fills LAN/Security/Monitor screens with synthetic data for
+    // portfolio screenshots without exposing real network state.
+    val demoMode: Boolean = false
 )

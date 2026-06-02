@@ -3,31 +3,47 @@ package com.eagleeye.modules.wifi
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.eagleeye.data.DemoOverrides
 import com.eagleeye.data.ScannedNetwork
 import com.eagleeye.data.SignalSample
 import com.eagleeye.data.WifiConnectionInfo
+import com.eagleeye.modules.settings.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class WifiViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = WifiRepository(application)
+    private val settingsRepo = SettingsRepository(application)
 
     private val _connectionInfo = MutableStateFlow(WifiConnectionInfo())
-    val connectionInfo: StateFlow<WifiConnectionInfo> = _connectionInfo.asStateFlow()
+    val connectionInfo: StateFlow<WifiConnectionInfo> =
+        combine(_connectionInfo, settingsRepo.settings) { real, s ->
+            if (s.demoMode) DemoOverrides.wifiConnection else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, WifiConnectionInfo())
 
     private val _scanResults = MutableStateFlow<List<ScannedNetwork>>(emptyList())
-    val scanResults: StateFlow<List<ScannedNetwork>> = _scanResults.asStateFlow()
+    val scanResults: StateFlow<List<ScannedNetwork>> =
+        combine(_scanResults, settingsRepo.settings) { real, s ->
+            if (s.demoMode) DemoOverrides.scannedNetworks else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
     private val _signalHistory = MutableStateFlow<List<SignalSample>>(emptyList())
-    val signalHistory: StateFlow<List<SignalSample>> = _signalHistory.asStateFlow()
+    val signalHistory: StateFlow<List<SignalSample>> =
+        combine(_signalHistory, settingsRepo.settings) { real, s ->
+            if (s.demoMode) DemoOverrides.signalHistory else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     init {
         startObservingConnection()
@@ -51,7 +67,11 @@ class WifiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _isScanning.value = true
             try {
-                _scanResults.value = repository.getScanResults()
+                if (settingsRepo.settings.first().demoMode) {
+                    _scanResults.value = DemoOverrides.scannedNetworks
+                } else {
+                    _scanResults.value = repository.getScanResults()
+                }
             } catch (_: Exception) {
             } finally {
                 _isScanning.value = false

@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.eagleeye.data.DemoOverrides
 import com.eagleeye.data.MonitorConfig
 import com.eagleeye.data.NetworkEvent
 import com.eagleeye.data.db.AppDatabase
@@ -16,11 +17,15 @@ class MonitorViewModel(application: Application) : AndroidViewModel(application)
     private val dao = AppDatabase.getInstance(application).networkEventDao()
     private val settingsRepo = SettingsRepository(getApplication())
 
-    val events: StateFlow<List<NetworkEvent>> = dao.observeRecent(100)
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val events: StateFlow<List<NetworkEvent>> =
+        combine(dao.observeRecent(100), settingsRepo.settings) { real, s ->
+            if (s.demoMode) DemoOverrides.networkEvents else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val unreadCount: StateFlow<Int> = dao.observeUnreadCount()
-        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+    val unreadCount: StateFlow<Int> =
+        combine(dao.observeUnreadCount(), settingsRepo.settings) { real, s ->
+            if (s.demoMode) DemoOverrides.networkEvents.count { !it.isRead } else real
+        }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     private val _config = MutableStateFlow(MonitorConfig())
     val config: StateFlow<MonitorConfig> = _config.asStateFlow()
