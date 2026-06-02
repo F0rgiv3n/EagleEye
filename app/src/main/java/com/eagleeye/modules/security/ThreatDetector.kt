@@ -146,18 +146,21 @@ class ThreatDetector(private val context: Context) {
         val scanResults = try { wifiManager.scanResults } catch (e: SecurityException) { null }
             ?: return CheckResult()
 
-        val duplicates = scanResults.filter { result ->
-            val ssid = result.SSID?.removePrefix("\"")?.removeSuffix("\"") ?: ""
-            ssid.equals(currentSsid, ignoreCase = true) && result.BSSID != currentBssid
+        val scanInfos = scanResults.map {
+            ScanInfo(
+                ssid = it.SSID?.removePrefix("\"")?.removeSuffix("\"") ?: "",
+                bssid = it.BSSID ?: ""
+            )
         }
+        val duplicateBssids = findEvilTwinBssids(scanInfos, currentSsid, currentBssid)
 
-        return if (duplicates.isNotEmpty()) {
-            val bssids = duplicates.joinToString(", ") { it.BSSID ?: "?" }
+        return if (duplicateBssids.isNotEmpty()) {
+            val joined = duplicateBssids.joinToString(", ")
             CheckResult(threats = listOf(Threat(
                 id = "evil_twin",
                 level = ThreatLevel.CRITICAL,
                 title = "Evil Twin AP Detected",
-                description = "Found ${duplicates.size} other access point(s) broadcasting SSID \"$currentSsid\" with different BSSIDs: $bssids. This may be a rogue AP mimicking your network.",
+                description = "Found ${duplicateBssids.size} other access point(s) broadcasting SSID \"$currentSsid\" with different BSSIDs: $joined. This may be a rogue AP mimicking your network.",
                 recommendation = "Disconnect immediately and verify the legitimacy of your network. Contact your network admin."
             )))
         } else CheckResult()
@@ -307,20 +310,5 @@ class ThreatDetector(private val context: Context) {
         }
     }
 
-    private fun intToIp(ip: Int): String =
-        "${ip and 0xFF}.${(ip shr 8) and 0xFF}.${(ip shr 16) and 0xFF}.${(ip shr 24) and 0xFF}"
-
-    private fun isPublicDns(ip: String): Boolean {
-        val parts = ip.split(".").mapNotNull { it.toIntOrNull() }
-        if (parts.size != 4) return false
-        return !(parts[0] == 10 || (parts[0] == 172 && parts[1] in 16..31) ||
-                (parts[0] == 192 && parts[1] == 168))
-    }
-
-    private fun isKnownGoodDns(ip: String) = ip in setOf(
-        "8.8.8.8", "8.8.4.4",       // Google
-        "1.1.1.1", "1.0.0.1",       // Cloudflare
-        "9.9.9.9", "149.112.112.112", // Quad9
-        "208.67.222.222", "208.67.220.220" // OpenDNS
-    )
+    // DNS pure helpers live in DnsAnalysis.kt so they can be unit-tested.
 }

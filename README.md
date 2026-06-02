@@ -216,7 +216,10 @@ app/src/main/java/com/eagleeye/
     └── SecurityWidgetReceiver.kt
 
 app/src/test/java/com/eagleeye/       JVM unit tests (run via `./gradlew test`)
-└── modules/packet/PacketParserTest.kt   8 tests for the IPv4/TCP/UDP/ICMP/DNS parser
+├── modules/packet/PacketParserTest.kt    8 tests — IPv4/TCP/UDP/ICMP/DNS parser
+├── modules/security/DnsAnalysisTest.kt  14 tests — DNS helpers + evil-twin detection
+├── modules/lan/OuiLookupTest.kt          8 tests — MAC prefix matching (24/28/36-bit)
+└── modules/tools/PortServiceNameTest.kt  8 tests — well-known port → service mapping
 ```
 
 ---
@@ -274,9 +277,14 @@ ANDROID_HOME=$ANDROID_HOME ./gradlew assembleRelease
 ./gradlew lintDebug
 ```
 
-**Current test coverage**
+**Current test coverage** — 38 JVM unit tests, all green:
 
-- `PacketParserTest` — 8 tests covering IPv4 rejection, TCP/UDP/ICMP parsing, DNS query-name extraction, truncated buffers, port→service mapping, size clamping. Hand-crafted byte arrays exercise the parser without needing real packets.
+- `PacketParserTest` — 8 tests covering IPv4 rejection, TCP/UDP/ICMP parsing, DNS query-name extraction, truncated buffers, OTHER protocol fallback, size clamping. Hand-crafted byte arrays exercise the parser without needing real packets.
+- `DnsAnalysisTest` — 14 tests covering little-endian `DhcpInfo` IP decoding, RFC1918 private-range classification, well-known resolver recognition (Google/Cloudflare/Quad9/OpenDNS), and case-insensitive multi-rogue evil-twin detection.
+- `OuiLookupTest` — 8 tests covering 24/28/36-bit prefix matching, longest-prefix-wins, case-insensitive and dash-separated MAC notation, fallback chain through MA-S → MA-M → OUI.
+- `PortServiceNameTest` — 8 tests covering well-known port mappings (HTTP/HTTPS/SSH/RDP/SMTP/IMAP/databases/Metasploit) and the `Port N` fallback for unknown ports.
+
+Pure helpers (DNS classification, OUI prefix matching, port lookup, evil-twin filtering) were intentionally extracted to top-level functions in their respective module files so they are unit-testable on the JVM without an emulator or `Context`.
 
 **Lint health:** `0 errors, 52 warnings` (warnings are deprecated `WifiInfo.SSID`, AGP/library version bumps available, and a couple of always-true lint heuristics — none functional).
 

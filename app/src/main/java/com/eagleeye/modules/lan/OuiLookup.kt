@@ -36,18 +36,30 @@ object OuiLookup {
         }
     }
 
-    fun lookup(mac: String): String {
-        if (mac.isBlank() || mac.length < 8) return "Unknown"
-        val normalized = mac.uppercase().replace("-", ":")
+    fun lookup(mac: String): String = matchPrefix(cache, mac)
 
-        // Try /28 (7 chars), /24 (8 chars), then /36 (10 chars) prefixes
-        val prefix24 = normalized.take(8)   // XX:XX:XX
-        val prefix28 = normalized.take(10)  // XX:XX:XX:X (MA-M)
-        val prefix36 = normalized.take(13)  // XX:XX:XX:XX:X (MA-S)
-
-        return cache[prefix36]
-            ?: cache[prefix28]
-            ?: cache[prefix24]
-            ?: "Unknown"
+    /** Test-only seam: lets unit tests inject entries without parsing a real OUI file. */
+    internal fun seedForTest(entries: Map<String, String>) {
+        cache.clear()
+        cache.putAll(entries)
+        loaded = true
     }
+}
+
+/**
+ * Pure prefix matching against an OUI cache. Tries /36, /28, /24 in order.
+ * Lives at the top level so unit tests can drive it with synthetic caches.
+ */
+fun matchPrefix(cache: Map<String, String>, mac: String): String {
+    if (mac.isBlank() || mac.length < 8) return "Unknown"
+    val normalized = mac.uppercase().replace("-", ":")
+
+    val prefix24 = normalized.take(8)   // XX:XX:XX
+    val prefix28 = normalized.take(10)  // XX:XX:XX:X (MA-M)
+    val prefix36 = normalized.take(13)  // XX:XX:XX:XX:X (MA-S)
+
+    return cache[prefix36]
+        ?: cache[prefix28]
+        ?: cache[prefix24]
+        ?: "Unknown"
 }

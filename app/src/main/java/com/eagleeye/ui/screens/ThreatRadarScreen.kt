@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.sp
 import com.eagleeye.data.LanDevice
 import com.eagleeye.data.Threat
 import com.eagleeye.data.ThreatLevel
-import com.eagleeye.data.IoTRisk
 import com.eagleeye.ui.theme.*
 import kotlin.math.*
 

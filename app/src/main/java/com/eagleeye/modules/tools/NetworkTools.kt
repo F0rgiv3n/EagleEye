@@ -292,20 +292,7 @@ class NetworkTools(private val context: Context) {
     private fun intToIp(ip: Int): String =
         "${ip and 0xFF}.${(ip shr 8) and 0xFF}.${(ip shr 16) and 0xFF}.${(ip shr 24) and 0xFF}"
 
-    fun getServiceName(port: Int): String = when (port) {
-        20 -> "FTP-Data"; 21 -> "FTP"; 22 -> "SSH"; 23 -> "Telnet"
-        25 -> "SMTP"; 53 -> "DNS"; 67 -> "DHCP"; 80 -> "HTTP"
-        110 -> "POP3"; 111 -> "RPC"; 119 -> "NNTP"; 123 -> "NTP"
-        139 -> "NetBIOS"; 143 -> "IMAP"; 161 -> "SNMP"; 194 -> "IRC"
-        443 -> "HTTPS"; 445 -> "SMB"; 465 -> "SMTPS"; 514 -> "Syslog"
-        554 -> "RTSP"; 587 -> "SMTP-TLS"; 631 -> "IPP/CUPS"; 993 -> "IMAPS"
-        995 -> "POP3S"; 1080 -> "SOCKS"; 1194 -> "OpenVPN"; 1433 -> "MSSQL"
-        1723 -> "PPTP"; 3306 -> "MySQL"; 3389 -> "RDP"; 4444 -> "Metasploit"
-        5432 -> "PostgreSQL"; 5900 -> "VNC"; 6379 -> "Redis"; 6881 -> "BitTorrent"
-        8080 -> "HTTP-Alt"; 8443 -> "HTTPS-Alt"; 8888 -> "HTTP-Alt2"
-        9200 -> "Elasticsearch"; 27017 -> "MongoDB"
-        else -> "Port $port"
-    }
+    fun getServiceName(port: Int): String = portServiceName(port)
 
     companion object {
         val TOP_PORTS = listOf(
@@ -316,4 +303,23 @@ class NetworkTools(private val context: Context) {
         )
         val QUICK_PORTS = listOf(21, 22, 23, 80, 139, 443, 445, 3389, 5900, 8080)
     }
+}
+
+/**
+ * Maps a TCP/UDP port to a well-known service label. Pure function —
+ * lives at the top level so it can be unit-tested without Android.
+ */
+fun portServiceName(port: Int): String = when (port) {
+    20 -> "FTP-Data"; 21 -> "FTP"; 22 -> "SSH"; 23 -> "Telnet"
+    25 -> "SMTP"; 53 -> "DNS"; 67 -> "DHCP"; 80 -> "HTTP"
+    110 -> "POP3"; 111 -> "RPC"; 119 -> "NNTP"; 123 -> "NTP"
+    139 -> "NetBIOS"; 143 -> "IMAP"; 161 -> "SNMP"; 194 -> "IRC"
+    443 -> "HTTPS"; 445 -> "SMB"; 465 -> "SMTPS"; 514 -> "Syslog"
+    554 -> "RTSP"; 587 -> "SMTP-TLS"; 631 -> "IPP/CUPS"; 993 -> "IMAPS"
+    995 -> "POP3S"; 1080 -> "SOCKS"; 1194 -> "OpenVPN"; 1433 -> "MSSQL"
+    1723 -> "PPTP"; 3306 -> "MySQL"; 3389 -> "RDP"; 4444 -> "Metasploit"
+    5432 -> "PostgreSQL"; 5900 -> "VNC"; 6379 -> "Redis"; 6881 -> "BitTorrent"
+    8080 -> "HTTP-Alt"; 8443 -> "HTTPS-Alt"; 8888 -> "HTTP-Alt2"
+    9200 -> "Elasticsearch"; 27017 -> "MongoDB"
+    else -> "Port $port"
 }

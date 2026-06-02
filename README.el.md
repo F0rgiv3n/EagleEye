@@ -216,7 +216,10 @@ app/src/main/java/com/eagleeye/
     └── SecurityWidgetReceiver.kt
 
 app/src/test/java/com/eagleeye/       JVM unit tests (τρέχουν με `./gradlew test`)
-└── modules/packet/PacketParserTest.kt   8 tests για τον IPv4/TCP/UDP/ICMP/DNS parser
+├── modules/packet/PacketParserTest.kt    8 tests — IPv4/TCP/UDP/ICMP/DNS parser
+├── modules/security/DnsAnalysisTest.kt  14 tests — DNS helpers + evil-twin detection
+├── modules/lan/OuiLookupTest.kt          8 tests — MAC prefix matching (24/28/36-bit)
+└── modules/tools/PortServiceNameTest.kt  8 tests — well-known port → service mapping
 ```
 
 ---
@@ -274,9 +277,14 @@ ANDROID_HOME=$ANDROID_HOME ./gradlew assembleRelease
 ./gradlew lintDebug
 ```
 
-**Τρέχον test coverage**
+**Τρέχον test coverage** — 38 JVM unit tests, όλα πράσινα:
 
-- `PacketParserTest` — 8 tests που καλύπτουν απόρριψη μη-IPv4 πακέτων, TCP/UDP/ICMP parsing, εξαγωγή DNS query name, truncated buffers, port→service mapping, size clamping. Hand-crafted byte arrays δοκιμάζουν τον parser χωρίς πραγματικά πακέτα.
+- `PacketParserTest` — 8 tests που καλύπτουν απόρριψη μη-IPv4 πακέτων, TCP/UDP/ICMP parsing, εξαγωγή DNS query name, truncated buffers, OTHER protocol fallback, size clamping. Hand-crafted byte arrays δοκιμάζουν τον parser χωρίς πραγματικά πακέτα.
+- `DnsAnalysisTest` — 14 tests που καλύπτουν little-endian `DhcpInfo` IP decoding, ταξινόμηση RFC1918 private ranges, αναγνώριση well-known resolvers (Google/Cloudflare/Quad9/OpenDNS) και case-insensitive multi-rogue evil-twin detection.
+- `OuiLookupTest` — 8 tests που καλύπτουν 24/28/36-bit prefix matching, longest-prefix-wins, case-insensitive και dash-separated MAC notation, fallback αλυσίδα MA-S → MA-M → OUI.
+- `PortServiceNameTest` — 8 tests που καλύπτουν well-known port mappings (HTTP/HTTPS/SSH/RDP/SMTP/IMAP/databases/Metasploit) και το `Port N` fallback για άγνωστα ports.
+
+Τα pure helpers (DNS classification, OUI prefix matching, port lookup, evil-twin filtering) έχουν εξαχθεί σκόπιμα ως top-level functions στα αντίστοιχα module αρχεία τους, ώστε να είναι unit-testable στο JVM χωρίς emulator ή `Context`.
 
 **Υγεία lint:** `0 errors, 52 warnings` (warnings είναι deprecated `WifiInfo.SSID`, διαθέσιμα AGP/library bumps, και μερικά always-true lint heuristics — κανένα λειτουργικό).
 
