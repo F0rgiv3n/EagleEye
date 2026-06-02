@@ -31,6 +31,8 @@ A single-Activity Jetpack Compose app that brings 28 network tools, threat detec
 - [Permissions](#permissions)
 - [Engineering notes](#engineering-notes)
 - [Roadmap & known limits](#roadmap--known-limits)
+- [Privacy](#privacy)
+- [Legal & authorized use](#legal--authorized-use)
 - [License](#license)
 
 ---
@@ -353,11 +355,62 @@ A handful of decisions worth calling out:
 
 ---
 
+## Privacy
+
+EagleEye is built around **local-first, no-telemetry** principles. Concretely:
+
+- **No analytics, no crash reporting, no developer-side telemetry.** The app never phones home.
+- **All scan data is stored locally** in the on-device Room database (`lan_devices`, `network_events`, `mac_profiles`). Nothing is uploaded.
+- **Captured packets never leave the device.** The `VpnService`-based packet analyzer keeps everything in-memory and discards it when you stop the capture.
+- **Third-party endpoints called from the app** (always over HTTPS, and only when you explicitly trigger the corresponding tool):
+
+  | Tool | Endpoint | Data sent | Purpose |
+  |------|----------|-----------|---------|
+  | Public IP | `api.ipify.org`, `ifconfig.me`, `ip-api.com` | Your public IP | Display your egress IP and GeoIP info |
+  | Captive portal | Standard Android captive-portal probe URLs | None beyond a probe HTTP request | Detect captive portals |
+  | Threat Intel | `abuseipdb.com` (only if you supply your own API key) | The IP you queried | Reputation lookup |
+  | Shodan | `api.shodan.io` (only if you supply your own API key) | The IP you queried | Open-port intelligence |
+  | Cert Transparency | `crt.sh` | The domain you queried | Public CT-log lookup |
+  | CVE | `services.nvd.nist.gov` | The CPE/keyword you queried | Public NVD lookup |
+
+  Each external call is initiated only by an explicit user action, never in the background.
+
+- **API keys** (Shodan, AbuseIPDB) are stored in DataStore Preferences on-device and never transmitted anywhere except to their respective owners.
+- **MAC addresses and SSIDs** of nearby devices and networks may be personal data under GDPR. EagleEye treats them as such: stored locally only, never shared, and removable via Settings → "Clear scan history".
+
+If you fork EagleEye and add any kind of upload, telemetry, or remote logging, you become a data controller under GDPR and must publish your own privacy notice.
+
+---
+
+## Legal & authorized use
+
+**EagleEye is a defensive security and network-analysis tool. Use it only on networks you own or have explicit, written authorization to audit.**
+
+The tool itself is in the same category as Wireshark, Nmap, Fing and similar open-source utilities — its features are entirely passive / detection-oriented:
+
+- Wi-Fi scanning relies on public SSID/BSSID broadcasts (legal to receive).
+- LAN scanning operates only on the network the device is currently joined to.
+- Packet capture uses Android's `VpnService` and sees **only this device's traffic** (the OS routes only the local app/device through the VPN).
+- "ARP spoofing" and "evil twin" features are **detection only** — EagleEye never performs an attack, only reports anomalies in cached state.
+- No password cracking, WPS-PIN attack, deauth injection, or evil-twin AP creation is implemented.
+
+Unauthorized scanning, monitoring, or analysis of networks or devices that you do not own may still violate applicable law, including but not limited to:
+
+- **Greek law**: Άρθρο 370Β / 370Γ Ποινικού Κώδικα (παράνομη πρόσβαση σε σύστημα πληροφοριών, παραβίαση δεδομένων προσωπικού χαρακτήρα), N. 3471/2006 (απόρρητο ηλεκτρονικών επικοινωνιών), N. 4624/2019 (GDPR εφαρμογή)
+- **EU law**: GDPR (Regulation 2016/679), ePrivacy Directive (2002/58/EC), NIS2 Directive (2022/2555)
+- **International**: Convention on Cybercrime (Budapest, 2001)
+- **U.S. jurisdictions**: Computer Fraud and Abuse Act (18 U.S.C. § 1030)
+- Equivalent statutes in your jurisdiction
+
+By installing or running EagleEye you accept full responsibility for ensuring your use complies with all applicable laws. The authors and contributors accept **no liability for misuse**.
+
+If you are running EagleEye in a professional capacity (penetration test, red-team engagement, internal IT audit), keep a written authorization on file before running scans.
+
+---
+
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-This is a security tool intended for use on networks you own or have explicit authorization to audit. Do not run scans against networks without permission.
+MIT — see [LICENSE](LICENSE). The license file also contains the full authorized-use notice as a binding term.
 
 ---
 

@@ -31,6 +31,8 @@ Single-Activity Jetpack Compose εφαρμογή που συγκεντρώνει
 - [Άδειες (permissions)](#άδειες-permissions)
 - [Engineering notes](#engineering-notes)
 - [Roadmap & γνωστοί περιορισμοί](#roadmap--γνωστοί-περιορισμοί)
+- [Ιδιωτικότητα](#ιδιωτικότητα)
+- [Νομικό πλαίσιο & εξουσιοδοτημένη χρήση](#νομικό-πλαίσιο--εξουσιοδοτημένη-χρήση)
 - [Άδεια](#άδεια)
 
 ---
@@ -353,11 +355,62 @@ ANDROID_HOME=$ANDROID_HOME ./gradlew assembleRelease
 
 ---
 
+## Ιδιωτικότητα
+
+Το EagleEye χτίστηκε με αρχές **local-first, no-telemetry**. Συγκεκριμένα:
+
+- **Καμία analytics, κανένα crash reporting, καμία telemetry προς τον developer.** Η εφαρμογή δεν στέλνει τίποτα πίσω.
+- **Όλα τα scan data αποθηκεύονται τοπικά** στην on-device Room database (`lan_devices`, `network_events`, `mac_profiles`). Τίποτα δεν ανεβαίνει.
+- **Τα captured πακέτα δεν φεύγουν ποτέ από τη συσκευή.** Ο `VpnService`-based packet analyzer τα κρατάει in-memory και τα πετάει όταν σταματάς το capture.
+- **Third-party endpoints που καλεί η εφαρμογή** (πάντα μέσω HTTPS και μόνο όταν το τρέχεις εσύ ρητά):
+
+  | Tool | Endpoint | Τι στέλνεται | Σκοπός |
+  |------|----------|--------------|--------|
+  | Public IP | `api.ipify.org`, `ifconfig.me`, `ip-api.com` | Η public IP σου | Εμφάνιση egress IP + GeoIP |
+  | Captive portal | Τα standard Android captive-portal probe URLs | Ένα probe HTTP request | Detection captive portal |
+  | Threat Intel | `abuseipdb.com` (μόνο αν βάλεις δικό σου API key) | Η IP που ρώτησες | Reputation lookup |
+  | Shodan | `api.shodan.io` (μόνο αν βάλεις δικό σου API key) | Η IP που ρώτησες | Open-port intel |
+  | Cert Transparency | `crt.sh` | Το domain που ρώτησες | Δημόσιο CT-log lookup |
+  | CVE | `services.nvd.nist.gov` | Το CPE/keyword που ρώτησες | Δημόσιο NVD lookup |
+
+  Κάθε external call ξεκινάει μόνο μετά από ρητή ενέργειά σου, ποτέ στο background.
+
+- **Τα API keys** (Shodan, AbuseIPDB) αποθηκεύονται στο DataStore Preferences της συσκευής και δεν διαβιβάζονται πουθενά εκτός από τους ίδιους τους providers τους.
+- **MAC addresses και SSIDs** γειτονικών συσκευών/δικτύων μπορεί να θεωρούνται προσωπικά δεδομένα κατά GDPR. Το EagleEye τα χειρίζεται αναλόγως: τοπικά μόνο, ποτέ δεν μοιράζονται, και είναι αφαιρέσιμα μέσω Settings → "Clear scan history".
+
+Αν κάνεις fork το EagleEye και προσθέσεις οποιοδήποτε upload, telemetry ή remote logging, γίνεσαι data controller κατά GDPR και πρέπει να δημοσιεύσεις δική σου privacy notice.
+
+---
+
+## Νομικό πλαίσιο & εξουσιοδοτημένη χρήση
+
+**Το EagleEye είναι defensive security & network-analysis tool. Χρησιμοποίησέ το μόνο σε δίκτυα που σου ανήκουν ή για τα οποία έχεις ρητή, γραπτή εξουσιοδότηση audit.**
+
+Το ίδιο το εργαλείο ανήκει στην ίδια κατηγορία με Wireshark, Nmap, Fing και άλλα παρόμοια open-source utilities — όλα τα features του είναι αυστηρά passive / detection-oriented:
+
+- Το Wi-Fi scanning βασίζεται σε δημόσια SSID/BSSID broadcasts (νόμιμη λήψη).
+- Το LAN scanning δουλεύει μόνο στο δίκτυο όπου είναι ήδη συνδεδεμένη η συσκευή.
+- Το packet capture χρησιμοποιεί το `VpnService` του Android και βλέπει **μόνο την κίνηση αυτής της συσκευής** (το OS δρομολογεί μόνο το local app/device μέσω του VPN).
+- Τα "ARP spoofing" και "evil twin" features είναι **detection only** — το EagleEye δεν εκτελεί ποτέ επίθεση, μόνο αναφέρει anomalies σε cached state.
+- Δεν υλοποιείται password cracking, WPS-PIN attack, deauth injection, ή δημιουργία evil-twin AP.
+
+Μη εξουσιοδοτημένη σάρωση, παρακολούθηση ή ανάλυση δικτύων/συσκευών που δεν σου ανήκουν μπορεί παρ' όλα αυτά να παραβιάζει την ισχύουσα νομοθεσία, συμπεριλαμβανομένων ενδεικτικά:
+
+- **Ελληνικό δίκαιο**: Άρθρο 370Β / 370Γ Ποινικού Κώδικα (παράνομη πρόσβαση σε σύστημα πληροφοριών, παραβίαση δεδομένων προσωπικού χαρακτήρα), N. 3471/2006 (απόρρητο ηλεκτρονικών επικοινωνιών), N. 4624/2019 (εφαρμογή GDPR)
+- **Ευρωπαϊκό δίκαιο**: GDPR (Κανονισμός 2016/679), ePrivacy Directive (2002/58/EΚ), NIS2 Directive (2022/2555)
+- **Διεθνές**: Σύμβαση της Βουδαπέστης για το Cybercrime (2001)
+- **U.S. δικαιοδοσίες**: Computer Fraud and Abuse Act (18 U.S.C. § 1030)
+- Αντίστοιχες διατάξεις σε άλλες δικαιοδοσίες
+
+Εγκαθιστώντας ή τρέχοντας το EagleEye αναλαμβάνεις πλήρως την ευθύνη να διασφαλίσεις ότι η χρήση σου συμμορφώνεται με την ισχύουσα νομοθεσία. Οι authors και contributors δεν φέρουν **καμία ευθύνη για κατάχρηση**.
+
+Αν τρέχεις το EagleEye σε επαγγελματικό πλαίσιο (penetration test, red-team engagement, εσωτερικό IT audit), κράτα γραπτή εξουσιοδότηση στον φάκελο πριν τρέξεις σαρώσεις.
+
+---
+
 ## Άδεια
 
-MIT — δες [LICENSE](LICENSE).
-
-Αυτό είναι security tool, για χρήση σε δίκτυα που σου ανήκουν ή για τα οποία έχεις ρητή άδεια audit. Μην τρέχεις σαρώσεις σε δίκτυα χωρίς άδεια.
+MIT — δες [LICENSE](LICENSE). Το αρχείο της άδειας περιέχει επίσης την πλήρη ειδοποίηση εξουσιοδοτημένης χρήσης ως δεσμευτικό όρο.
 
 ---
 

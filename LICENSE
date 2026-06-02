@@ -1,0 +1,46 @@
+MIT License
+
+Copyright (c) 2026 George (EagleEye contributors)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+────────────────────────────────────────────────────────────────────────────
+
+ADDITIONAL NOTICE — AUTHORIZED USE ONLY
+
+EagleEye is a defensive security and network-analysis tool. It is intended
+solely for use on networks that the operator owns or for which the operator
+has explicit, written authorization to audit.
+
+Unauthorized scanning, monitoring, or analysis of networks or devices that
+you do not own or are not authorized to test may violate applicable law,
+including but not limited to:
+
+  - Article 370B / 370C of the Greek Criminal Code (Παράνομη πρόσβαση σε
+    σύστημα πληροφοριών, παραβίαση δεδομένων προσωπικού χαρακτήρα)
+  - Regulation (EU) 2016/679 (GDPR) and Greek Law 4624/2019
+  - Directive 2002/58/EC (ePrivacy) and Greek Law 3471/2006
+  - The Convention on Cybercrime (Budapest, 2001)
+  - Computer Fraud and Abuse Act (18 U.S.C. § 1030) in U.S. jurisdictions
+  - Equivalent statutes in other jurisdictions
+
+The authors and contributors of this software accept no responsibility for
+unlawful or unauthorized use. By using EagleEye you accept full responsibility
+for ensuring your use complies with all applicable laws and that you have
+proper authorization for every network you audit.
