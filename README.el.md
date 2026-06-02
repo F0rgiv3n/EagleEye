@@ -22,11 +22,12 @@ Single-Activity Jetpack Compose εφαρμογή που συγκεντρώνει
 
 - [Συνοπτικά χαρακτηριστικά](#συνοπτικά-χαρακτηριστικά)
 - [Screenshots](#screenshots)
+- [Εγκατάσταση](#εγκατάσταση)
 - [Κατάλογος δυνατοτήτων](#κατάλογος-δυνατοτήτων)
 - [Αρχιτεκτονική](#αρχιτεκτονική)
 - [Δομή του project](#δομή-του-project)
 - [Tech stack](#tech-stack-1)
-- [Build & εγκατάσταση](#build--εγκατάσταση)
+- [Build από source](#build-από-source)
 - [Testing](#testing)
 - [Άδειες (permissions)](#άδειες-permissions)
 - [Engineering notes](#engineering-notes)
@@ -79,6 +80,56 @@ Single-Activity Jetpack Compose εφαρμογή που συγκεντρώνει
     <td></td>
   </tr>
 </table>
+
+---
+
+## Εγκατάσταση
+
+Το EagleEye διανέμεται ως APK μέσω GitHub Releases — **δεν** βρίσκεται στο Google Play (το Play store απορρίπτει σχεδόν όλα τα VPN-based packet capture και LAN port-scanner apps ανεξάρτητα από νομιμότητα).
+
+### Απαιτήσεις
+
+- Android **8.0 (API 26)** ή νεότερο — υποστηρίζει κινητά από το 2017 και μετά
+- ~22 MB ελεύθερο storage για το APK
+- Μερικά features χρειάζονται επιπλέον permissions ή υλικό (επισημαίνονται μέσα στην εφαρμογή):
+  - **MAC randomization change** — χρειάζεται `root` (οι περισσότεροι το παραλείπουν)
+  - **Background monitor / notifications** — χρειάζεται notification permission σε Android 13+
+  - **Bluetooth scan** — χρειάζεται Bluetooth permission σε Android 12+
+  - **Packet capture** — χρησιμοποιεί `VpnService`, σου ζητάει VPN approval την πρώτη φορά
+
+### Επιλογή 1 — Κατέβασμα έτοιμου APK (πιο εύκολο)
+
+1. Πήγαινε στη [**σελίδα Releases**](../../releases) και κατέβασε το `app-debug.apk` (ή το signed `app-release.apk`) από το πιο πρόσφατο release.
+2. Στο κινητό, άνοιξε το αρχείο. Το Android θα προειδοποιήσει ότι προέρχεται από unknown source — πάτα **Settings → Allow from this source** και επιβεβαίωσε την εγκατάσταση.
+3. Άνοιξε το **EagleEye**. Στο πρώτο launch δώσε permissions για location, Wi-Fi και notifications όταν στα ζητήσει.
+4. (Προαιρετικά) **Settings → DEMO MODE → Show demo data** αν θες να εξερευνήσεις όλες τις οθόνες με synthetic data πριν το στρέψεις στο πραγματικό σου δίκτυο.
+
+### Επιλογή 2 — Εγκατάσταση μέσω ADB από υπολογιστή
+
+Αν έχεις [ADB](https://developer.android.com/tools/adb) και το κινητό σε Developer Mode με USB debugging ενεργοποιημένο:
+
+```bash
+# Σύνδεσε το κινητό και επιβεβαίωσε το "Allow USB debugging" popup
+adb devices    # επιβεβαιώνει ότι η συσκευή είναι ορατή
+
+# Κατέβασε το APK από το τελευταίο GitHub release, μετά:
+adb install -r app-debug.apk
+```
+
+> Xiaomi/MIUI χρήστες: ενεργοποίησε επίσης **"Install via USB"** στα Developer options (μπορεί να ζητήσει Mi account login).
+
+### Επιλογή 3 — Δοκίμασέ το σε Android emulator
+
+Αν θες απλά να το δοκιμάσεις χωρίς να αγγίξεις το κινητό σου, οποιοδήποτε Android Studio AVD σε API 26+ δουλεύει. Τα screenshots του README τραβήχτηκαν από `Medium_Phone_API_36.1` (Android 15) emulator με `Demo Mode` ενεργοποιημένο — κανένα πραγματικό δίκτυο δεν αγγίζεται.
+
+### Μετά την εγκατάσταση
+
+- Συνδέσου σε ένα Wi-Fi δίκτυο και άνοιξε το **Dashboard**.
+- Το **LAN Scanner** tab τρέχει ARP + ICMP sweep στο subnet σου — περίμενε 10–30 δευτερόλεπτα.
+- Το **Security Audit** τρέχει αυτόματα μόλις ανοίξεις το **Security** tab.
+- Το **Monitor** tab κρατάει ένα background service ενεργό ανάμεσα στα scans (μπορείς να το σταματήσεις όποτε θες).
+
+Αν κάτι φαίνεται χαλασμένο, άνοιξε issue με την Android έκδοση, το μοντέλο, και ένα screenshot.
 
 ---
 
@@ -258,7 +309,7 @@ app/src/test/java/com/eagleeye/       JVM unit tests (τρέχουν με `./gra
 
 ---
 
-## Build & εγκατάσταση
+## Build από source
 
 ```bash
 # Debug APK
@@ -274,13 +325,13 @@ ANDROID_HOME=$ANDROID_HOME ./gradlew assembleRelease
 ./gradlew clean
 ```
 
-**Απαιτήσεις**
-- JDK 17
-- Android SDK με API 35
-- Min device: Android 8.0 (API 26)
-- Κάποια προχωρημένα features (αλλαγή MAC, deauth detection) απαιτούν **root**
+**Toolchain**
+- JDK **17**
+- Android SDK με API **35** (`compileSdk`) — Android 15
+- Gradle 8.7, AGP 8.4, Kotlin 2.0
+- Δεν χρειάζεται NDK
 
-**Output:** `app/build/outputs/apk/debug/app-debug.apk` (~20.7 MB debug, περιλαμβάνει την OUI database)
+**Output:** `app/build/outputs/apk/debug/app-debug.apk` (~22 MB debug — το μέγεθος δεσπόζεται από την Wireshark OUI database)
 
 ---
 

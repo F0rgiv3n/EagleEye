@@ -22,11 +22,12 @@ A single-Activity Jetpack Compose app that brings 28 network tools, threat detec
 
 - [Highlights](#highlights)
 - [Screenshots](#screenshots)
+- [Install](#install)
 - [Feature catalogue](#feature-catalogue)
 - [Architecture](#architecture)
 - [Project structure](#project-structure)
 - [Tech stack](#tech-stack)
-- [Build & install](#build--install)
+- [Build from source](#build-from-source)
 - [Testing](#testing)
 - [Permissions](#permissions)
 - [Engineering notes](#engineering-notes)
@@ -79,6 +80,56 @@ All screenshots below were captured from a synthetic `Demo Mode` build (toggle i
     <td></td>
   </tr>
 </table>
+
+---
+
+## Install
+
+EagleEye is distributed as an APK from GitHub Releases — it is **not** on Google Play (the Play store rejects most VPN-based packet capture and LAN port-scanner apps regardless of legitimacy).
+
+### Requirements
+
+- Android **8.0 (API 26)** or newer — supports phones from 2017 onward
+- ~22 MB free storage for the APK
+- A few features need additional permissions or hardware (clearly marked in-app):
+  - **MAC randomization change** — requires `root` (most users skip this)
+  - **Background monitor / notifications** — needs notification permission on Android 13+
+  - **Bluetooth scan** — needs Bluetooth permission on Android 12+
+  - **Packet capture** — uses `VpnService`, prompts for VPN approval the first time
+
+### Option 1 — Download a prebuilt APK (easiest)
+
+1. Go to the [**Releases page**](../../releases) and download `app-debug.apk` (or the signed `app-release.apk`) from the latest release.
+2. On your phone, open the file. Android will warn that it comes from an unknown source — tap **Settings → Allow from this source** and confirm install.
+3. Open **EagleEye**. On first launch, grant the location, Wi-Fi, and notification permissions when prompted.
+4. (Optional) **Settings → DEMO MODE → Show demo data** if you want to explore every screen filled with synthetic data before pointing it at your real network.
+
+### Option 2 — Install via ADB from a computer
+
+If you have [ADB](https://developer.android.com/tools/adb) installed and your phone in Developer Mode with USB debugging enabled:
+
+```bash
+# Plug in the phone and confirm the "Allow USB debugging" prompt
+adb devices    # confirms the device is visible
+
+# Download the APK from the latest GitHub release, then:
+adb install -r app-debug.apk
+```
+
+> Xiaomi/MIUI users: also enable **"Install via USB"** in Developer options (may require a Mi account login).
+
+### Option 3 — Try it on an Android emulator
+
+If you just want to try the app without touching your phone, any Android Studio AVD on API 26+ works. The screenshots in this README were taken from a `Medium_Phone_API_36.1` (Android 15) emulator with `Demo Mode` enabled — no real network is ever touched.
+
+### After install
+
+- Connect to a Wi-Fi network and open the **Dashboard**.
+- The **LAN Scanner** tab runs an ARP + ICMP sweep across your subnet — expect 10–30 seconds.
+- The **Security Audit** runs automatically on opening the **Security** tab.
+- The **Monitor** tab keeps a persistent background service running between scans (you can stop it any time).
+
+If anything feels broken, open an issue with the Android version, the device model, and a screenshot.
 
 ---
 
@@ -258,7 +309,9 @@ app/src/test/java/com/eagleeye/       JVM unit tests (run via `./gradlew test`)
 
 ---
 
-## Build & install
+## Build from source
+
+For contributors and anyone who wants to compile EagleEye themselves.
 
 ```bash
 # Debug APK
@@ -274,13 +327,13 @@ ANDROID_HOME=$ANDROID_HOME ./gradlew assembleRelease
 ./gradlew clean
 ```
 
-**Requirements**
-- JDK 17
-- Android SDK with API 35
-- Min device: Android 8.0 (API 26)
-- Some advanced features (MAC change, deauth detection) require **root**
+**Toolchain**
+- JDK **17**
+- Android SDK with API **35** (`compileSdk`) — Android 15
+- Gradle 8.7, AGP 8.4, Kotlin 2.0
+- No NDK required
 
-**Output:** `app/build/outputs/apk/debug/app-debug.apk` (~20.7 MB debug, includes the bundled OUI database)
+**Output:** `app/build/outputs/apk/debug/app-debug.apk` (~22 MB debug — size dominated by the bundled Wireshark OUI database)
 
 ---
 
